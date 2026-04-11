@@ -514,7 +514,7 @@ Wave 2 (Core + Release):
 
 ---
 
-- [ ] 9. Commit + Push to GitHub
+- [x] 9. Commit + Push to GitHub
 
   **What to do**:
   - Initialize git repo (if not already)
@@ -556,15 +556,15 @@ Wave 2 (Core + Release):
 
 ## Final Verification Wave
 
-- [ ] F1. **Plan Compliance Audit** — `oracle`
+- [x] F1. **Plan Compliance Audit** — `oracle`
   Read the plan end-to-end. Verify all "Must Have" items implemented.
   Output: `Must Have [9/9] | Must NOT Have [0 found] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Code Quality Review** — `unspecified-high`
+- [x] F2. **Code Quality Review** — `unspecified-high`
   Run `cargo clippy`, `cargo fmt --check`, check for warnings.
   Output: `Clippy [N warnings] | Format [OK/FIX] | VERDICT`
 
-- [ ] F3. **GitHub Actions Test** — `unspecified-high`
+- [x] F3. **GitHub Actions Test** — `unspecified-high`
   Trigger workflow manually, verify all matrix builds start.
   Output: `Workflow [triggered/pending] | Matrix [all 3 platforms] | VERDICT`
 
