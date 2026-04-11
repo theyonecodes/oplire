@@ -98,6 +98,36 @@ To reinstall even if already present:
 oplire-reset install --force
 ```
 
+## Install
+
+### Windows (winget)
+
+```powershell
+winget install BerkeOruc.oplire
+```
+
+Or manually: Download from [Releases](https://github.com/BerkeOruc/oplire/releases)
+
+### Linux (AUR)
+
+```bash
+# With yay
+yay -S oplire
+
+# Or manually
+git clone https://aur.archlinux.org/oplire.git
+cd oplire
+makepkg -si
+```
+
+### macOS
+
+```bash
+brew install berkeoruc/oplire/oplire
+```
+
+Or from [Releases](https://github.com/BerkeOruc/oplire/releases)
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
