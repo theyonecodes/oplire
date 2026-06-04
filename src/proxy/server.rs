@@ -3,12 +3,14 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::Mutex;
 use tracing::info;
 
-use crate::config::ProxyConfig;
+use crate::config::{ProxyConfig, load_config};
 use crate::proxy::handlers::{handle_messages, handle_model_detail, handle_models, ProxyState};
 use crate::warp::WarpResolver;
 
@@ -18,9 +20,12 @@ async fn log_requests(
 ) -> axum::response::Response {
     let method = request.method().clone();
     let uri = request.uri().clone();
+    let start = Instant::now();
     info!("→ {} {}", method, uri);
     let response = next.run(request).await;
-    info!("← {} {} {}", method, uri, response.status());
+    let duration = start.elapsed().as_millis() as u64;
+    let status = response.status().as_u16();
+    info!("← {} {} {} ({}ms)", method, uri, status, duration);
     response
 }
 
@@ -32,13 +37,34 @@ pub async fn start_proxy_server(config: ProxyConfig) -> anyhow::Result<()> {
     let warp_resolver =
         WarpResolver::new(config.max_retries, config.warp_reset_delay_ms);
 
+    let saved_config = load_config();
     let state = Arc::new(Mutex::new(ProxyState {
         config: config.clone(),
         client,
         warp_resolver,
+        tone: saved_config.tone,
+        logs: VecDeque::new(),
     }));
 
     let app = Router::new()
+        .route("/", get(crate::gui::serve_gui))
+        .route("/api/status", get(crate::gui::api_status))
+        .route("/api/config", get(crate::gui::api_config_get).post(crate::gui::api_config_post))
+        .route("/api/config/reset", post(crate::gui::api_config_reset))
+        .route("/api/logs", get(crate::gui::api_logs))
+        .route("/api/launch", post(crate::gui::api_launch))
+        .route("/api/doctor", get(crate::gui::api_doctor))
+        .route("/api/warp/reset", post(crate::gui::api_warp_reset))
+        .route("/api/warp/full-reset", post(crate::gui::api_warp_full_reset))
+        .route("/api/warp/stop", post(crate::gui::api_warp_stop))
+        .route("/api/install/opencode", post(crate::gui::api_install_opencode))
+        .route("/api/install/claude-code", post(crate::gui::api_install_claude_code))
+        .route("/api/tor/status", get(crate::gui::api_tor_status))
+        .route("/api/tor/rotate", post(crate::gui::api_tor_rotate))
+        .route("/api/tor/start", post(crate::gui::api_tor_start))
+        .route("/api/tor/stop", post(crate::gui::api_tor_stop))
+        .route("/api/tor/config", post(crate::gui::api_tor_config))
+        .route("/api/settings", get(crate::gui::api_settings_get).post(crate::gui::api_settings_post))
         .route("/v1/models", get(handle_models))
         .route("/v1/models/{model_id}", get(handle_model_detail))
         .route("/v1/messages", post(handle_messages))

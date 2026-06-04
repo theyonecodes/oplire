@@ -5,7 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-const VERSION: &str = "2.4.0";
+const VERSION: &str = "2.5.0";
 
 #[derive(Parser, Debug)]
 #[command(name = "oplire")]
@@ -47,6 +47,22 @@ enum Commands {
         max_retries: u32,
         #[arg(long, default_value = "5000")]
         warp_delay: u64,
+        #[arg(long)]
+        tor: bool,
+    },
+    Gui {
+        #[arg(long, default_value = "127.0.0.1:8080")]
+        listen: String,
+        #[arg(long, default_value = "http://localhost:3000")]
+        upstream: String,
+        #[arg(long)]
+        api_key: Option<String>,
+        #[arg(long, default_value = "3")]
+        max_retries: u32,
+        #[arg(long, default_value = "5000")]
+        warp_delay: u64,
+        #[arg(long)]
+        tor: bool,
     },
     Connect {
         #[command(subcommand)]
@@ -78,9 +94,31 @@ enum Commands {
     },
     Doctor {},
     Setup {},
+    Start {
+        #[arg(long, default_value = "127.0.0.1:8080")]
+        listen: String,
+        #[arg(long, default_value = "http://localhost:3000")]
+        upstream: String,
+        #[arg(long)]
+        model: Option<String>,
+        #[arg(long)]
+        effort: Option<String>,
+        #[arg(long)]
+        api_key: Option<String>,
+        #[arg(long, default_value = "3")]
+        max_retries: u32,
+        #[arg(long, default_value = "5000")]
+        warp_delay: u64,
+        #[arg(long)]
+        tor: bool,
+    },
     Models {
         #[arg(long, default_value = "http://localhost:3000")]
         upstream: String,
+    },
+    Tor {
+        #[command(subcommand)]
+        target: TorTarget,
     },
 }
 
@@ -116,6 +154,15 @@ enum ConnectTarget {
         #[arg(last = true)]
         claude_args: Vec<String>,
     },
+}
+
+#[derive(Subcommand, Debug)]
+enum TorTarget {
+    Status {},
+    Start {},
+    Stop {},
+    Rotate {},
+    Ip {},
 }
 
 #[derive(Subcommand, Debug)]
@@ -505,6 +552,52 @@ fn main() {
             }
         }
 
+        Commands::Tor { target } => {
+            print_banner();
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            match target {
+                TorTarget::Status {} => {
+                    println!("{}", "Tor Status".bold().cyan());
+                    println!();
+                    let status = rt.block_on(oplire_reset::tor::get_tor_status());
+                    println!("{} Installed: {}", "→".green(), if status.installed { "Yes".green().bold() } else { "No".red().bold() });
+                    println!("{} Running:   {}", "→".green(), if status.running { "Yes".green().bold() } else { "No".red().bold() });
+                    if let Some(ip) = &status.exit_ip {
+                        println!("{} Exit IP:  {}", "→".green(), ip.bold());
+                    }
+                    println!("{} SOCKS:    {}", "→".green(), format!("127.0.0.1:{}", status.socks_port).bold());
+                }
+                TorTarget::Start {} => {
+                    println!("{}", "Starting Tor...".dimmed());
+                    match rt.block_on(oplire_reset::tor::start_tor()) {
+                        Ok(msg) => println!("{} {}", "✓".green().bold(), msg),
+                        Err(e) => println!("{} {}", "[ERROR]".red(), e),
+                    }
+                }
+                TorTarget::Stop {} => {
+                    println!("{}", "Stopping Tor...".dimmed());
+                    match rt.block_on(oplire_reset::tor::stop_tor()) {
+                        Ok(msg) => println!("{} {}", "✓".green().bold(), msg),
+                        Err(e) => println!("{} {}", "[ERROR]".red(), e),
+                    }
+                }
+                TorTarget::Rotate {} => {
+                    println!("{}", "Rotating Tor circuit...".dimmed());
+                    match rt.block_on(oplire_reset::tor::rotate_tor_circuit()) {
+                        Ok(msg) => println!("{} {}", "✓".green().bold(), msg),
+                        Err(e) => println!("{} {}", "[ERROR]".red(), e),
+                    }
+                }
+                TorTarget::Ip {} => {
+                    println!("{}", "Fetching exit IP...".dimmed());
+                    match rt.block_on(oplire_reset::tor::get_tor_exit_ip()) {
+                        Some(ip) => println!("{} Exit IP: {}", "→".green(), ip.bold()),
+                        None => println!("{} Could not fetch exit IP. Is Tor running?", "[WARN]".yellow()),
+                    }
+                }
+            }
+        }
+
         Commands::Setup {} => {
             print_banner();
             println!("{}", "Welcome to oplire Setup Wizard".bold().green());
@@ -790,6 +883,10 @@ fn main() {
                 opencode_api_key: api_key.clone(),
                 max_retries: *max_retries,
                 warp_reset_delay_ms: *warp_delay,
+                use_tor: false,
+                tor_port: 9050,
+                rotation_mode: "on_block".to_string(),
+                rotation_interval_secs: 300,
             };
 
             println!("{} Proxy:      {}", "→".green(), listen.bold());
@@ -835,6 +932,110 @@ fn main() {
 
             if !claude_args.is_empty() {
                 cmd.args(claude_args);
+            }
+
+            let status = cmd.status().map_err(|e| e.to_string()).unwrap_or_else(|_| {
+                eprintln!("{} Failed to launch Claude Code", "[ERROR]".red());
+                std::process::exit(1);
+            });
+
+            println!();
+            println!("{} Claude Code exited with: {}", "Info:".cyan(), status.to_string().bold());
+            println!("{} Shutting down proxy...", "→".green().dimmed());
+
+            drop(proxy_handle);
+        }
+
+        Commands::Start {
+            listen,
+            upstream,
+            model,
+            effort,
+            api_key,
+            max_retries,
+            warp_delay,
+            tor: _,
+        } => {
+            if !check_claude_installed() {
+                eprintln!("{} Claude Code not found in PATH", "[ERROR]".red());
+                eprintln!("{} Install: {}", "Fix:".cyan(), "npm install -g @anthropic-ai/claude-code".bold().yellow());
+                std::process::exit(1);
+            }
+
+            let selected_model = match model {
+                Some(m) => m.clone(),
+                None => {
+                    println!("{} Fetching models from {}...", "→".cyan(), upstream.bold());
+                    match fetch_models(upstream) {
+                        Ok(models) => {
+                            if let Some(first) = models.first() {
+                                println!("{} Using: {}", "→".green(), first.1.bold());
+                                first.0.clone()
+                            } else {
+                                println!("{} No models found, using default", "[WARN]".yellow());
+                                "glm-4.7-free".to_string()
+                            }
+                        }
+                        Err(e) => {
+                            println!("{} Failed to fetch models: {}", "[WARN]".yellow(), e);
+                            println!("{} Using default: glm-4.7-free", "→".cyan());
+                            "glm-4.7-free".to_string()
+                        }
+                    }
+                }
+            };
+
+            let config = ProxyConfig {
+                listen_addr: listen.clone(),
+                opencode_base_url: upstream.clone(),
+                opencode_api_key: api_key.clone(),
+                max_retries: *max_retries,
+                warp_reset_delay_ms: *warp_delay,
+                use_tor: false,
+                tor_port: 9050,
+                rotation_mode: "on_block".to_string(),
+                rotation_interval_secs: 300,
+            };
+
+            println!();
+            println!("{} oplire start", "→".green().bold());
+            println!("{} Proxy:    {}", "→".green(), listen.bold());
+            println!("{} Upstream: {}", "→".green(), upstream.bold());
+            println!("{} Model:    {}", "→".green(), selected_model.bold());
+            if let Some(e) = effort {
+                println!("{} Effort:   {}", "→".green(), e.bold());
+            }
+            println!();
+
+            println!("{}", "Starting proxy...".dimmed());
+
+            let proxy_config = config.clone();
+            let listen_clone = listen.clone();
+            let model_clone = selected_model.clone();
+            let effort_clone = effort.clone();
+
+            let proxy_handle = std::thread::spawn(move || {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    oplire_reset::proxy::start_proxy_server(proxy_config).await
+                })
+            });
+
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+
+            println!("{}", "Launching Claude Code...".dimmed());
+            println!();
+
+            let mut cmd = Command::new("claude");
+            cmd.env("ANTHROPIC_BASE_URL", format!("http://{}", listen_clone))
+                .env("ANTHROPIC_API_KEY", "oplire-proxy-key");
+
+            if !model_clone.is_empty() {
+                cmd.env("ANTHROPIC_MODEL", &model_clone);
+            }
+
+            if let Some(ref e) = effort_clone {
+                cmd.env("CLAUDE_CODE_EFFORT_LEVEL", e);
             }
 
             let status = cmd.status().map_err(|e| e.to_string()).unwrap_or_else(|_| {
@@ -906,6 +1107,10 @@ fn main() {
                 opencode_api_key: api_key.clone(),
                 max_retries: *max_retries,
                 warp_reset_delay_ms: *warp_delay,
+                use_tor: false,
+                tor_port: 9050,
+                rotation_mode: "on_block".to_string(),
+                rotation_interval_secs: 300,
             };
 
             let rt = tokio::runtime::Runtime::new().unwrap();
@@ -1081,6 +1286,7 @@ fn main() {
             api_key,
             max_retries,
             warp_delay,
+            tor: _,
         } => {
             let config = ProxyConfig {
                 listen_addr: listen.clone(),
@@ -1088,6 +1294,10 @@ fn main() {
                 opencode_api_key: api_key.clone(),
                 max_retries: *max_retries,
                 warp_reset_delay_ms: *warp_delay,
+                use_tor: false,
+                tor_port: 9050,
+                rotation_mode: "on_block".to_string(),
+                rotation_interval_secs: 300,
             };
 
             print_banner();
@@ -1114,6 +1324,49 @@ fn main() {
                 oplire_reset::proxy::start_proxy_server(config).await
             }) {
                 eprintln!("{} Proxy server error: {}", "[ERROR]".red(), e);
+                std::process::exit(1);
+            }
+        }
+
+        Commands::Gui {
+            listen,
+            upstream,
+            api_key,
+            max_retries,
+            warp_delay,
+            tor: _,
+        } => {
+            let config = ProxyConfig {
+                listen_addr: listen.clone(),
+                opencode_base_url: upstream.clone(),
+                opencode_api_key: api_key.clone(),
+                max_retries: *max_retries,
+                warp_reset_delay_ms: *warp_delay,
+                use_tor: false,
+                tor_port: 9050,
+                rotation_mode: "on_block".to_string(),
+                rotation_interval_secs: 300,
+            };
+
+            let url = format!("http://{}", listen);
+
+            print_banner();
+            println!("{}", "oplire Web GUI".bold().green());
+            println!();
+            println!("{} Control panel: {}", "→".green(), url.bold().yellow());
+            println!("{} Upstream:      {}", "→".green(), upstream.bold());
+            println!();
+            println!("{}", "Opening browser...".dimmed());
+            println!("{} Press Ctrl+C to stop", "Tip:".cyan());
+            println!();
+
+            let _ = open::that(&url);
+
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            if let Err(e) = rt.block_on(async {
+                oplire_reset::proxy::start_proxy_server(config).await
+            }) {
+                eprintln!("{} GUI server error: {}", "[ERROR]".red(), e);
                 std::process::exit(1);
             }
         }
@@ -1289,8 +1542,10 @@ fn main() {
             println!("  oplire stop                # Stop WARP tunnel");
             println!();
             println!("{}", "Proxy & Claude Code:".bold());
+            println!("  oplire start                 # One-liner: proxy + Claude Code + free model");
             println!("  oplire proxy               # Start reverse proxy");
-            println!("  oplire connect claude-code # Proxy + launch Claude Code");
+            println!("  oplire gui                 # Start proxy + open web control panel");
+            println!("  oplire connect claude-code # Interactive model selection");
             println!("  oplire daemon              # Background proxy service");
             println!("  oplire watch               # Monitor OpenCode, auto-reset");
             println!();
@@ -1300,10 +1555,19 @@ fn main() {
             println!("  oplire config set          # Save config");
             println!("  oplire config reset        # Reset to defaults");
             println!("  oplire doctor              # Diagnose system setup");
+            println!();
+            println!("{}", "Tor:".bold());
+            println!("  oplire tor status          # Check Tor installation & status");
+            println!("  oplire tor start           # Start Tor daemon");
+            println!("  oplire tor stop            # Stop Tor daemon");
+            println!("  oplire tor rotate          # Force new circuit (NEWNYM)");
+            println!("  oplire tor ip              # Show current exit IP");
+            println!("  oplire proxy --tor         # Start proxy with Tor routing");
+            println!("  oplire start --tor         # Start + Claude Code via Tor");
         }
     }
 
-    if !matches!(&cli.command, Commands::About {} | Commands::Proxy { .. } | Commands::Connect { .. } | Commands::Daemon { .. } | Commands::Watch { .. } | Commands::Doctor {} | Commands::Config { .. } | Commands::Setup {} | Commands::Install { .. } | Commands::Models { .. }) {
+    if !matches!(&cli.command, Commands::About {} | Commands::Proxy { .. } | Commands::Gui { .. } | Commands::Connect { .. } | Commands::Start { .. } | Commands::Daemon { .. } | Commands::Watch { .. } | Commands::Doctor {} | Commands::Config { .. } | Commands::Setup {} | Commands::Install { .. } | Commands::Models { .. } | Commands::Tor { .. }) {
         println!("\n{} v{}", "oplire".bold(), VERSION.dimmed());
     }
 }

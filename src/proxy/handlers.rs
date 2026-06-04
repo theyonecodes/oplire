@@ -9,6 +9,7 @@ use bytes::Bytes;
 use futures::StreamExt;
 use reqwest::Client;
 use serde_json::Value;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
@@ -17,10 +18,22 @@ use crate::config::ProxyConfig;
 use crate::transform::{anthropic_to_opencode_request, opencode_stream_to_anthropic, opencode_response_to_anthropic};
 use crate::warp::WarpResolver;
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct RequestLog {
+    pub timestamp: String,
+    pub method: String,
+    pub path: String,
+    pub status: u16,
+    pub duration_ms: u64,
+    pub model: Option<String>,
+}
+
 pub struct ProxyState {
     pub config: ProxyConfig,
     pub client: Client,
     pub warp_resolver: WarpResolver,
+    pub tone: String,
+    pub logs: VecDeque<RequestLog>,
 }
 
 pub async fn handle_models(State(state): State<Arc<Mutex<ProxyState>>>) -> impl IntoResponse {

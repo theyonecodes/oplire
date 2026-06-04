@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>oplire Control Panel</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
+  .container { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
+  .sidebar { background: #111; border-right: 1px solid #222; padding: 24px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+  .main { padding: 24px; overflow-y: auto; }
+  h1 { font-size: 20px; color: #00ff88; font-weight: 600; }
+  h1 span { color: #666; font-weight: 400; }
+  h2 { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+  .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px; }
+  .status-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #222; }
+  .status-row:last-child { border-bottom: none; }
+  .status-label { color: #888; font-size: 13px; }
+  .status-value { font-size: 13px; font-weight: 500; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #00ff8822; color: #00ff88; }
+  .badge-red { background: #ff444422; color: #ff4444; }
+  .badge-yellow { background: #ffaa0022; color: #ffaa00; }
+  .badge-gray { background: #44444422; color: #888; }
+  .badge-blue { background: #4488ff22; color: #4488ff; }
+  select, input[type="text"] { width: 100%; background: #0a0a0a; border: 1px solid #333; color: #e0e0e0; padding: 8px 12px; border-radius: 6px; font-family: inherit; font-size: 13px; }
+  select:focus, input:focus { outline: none; border-color: #00ff88; }
+  .effort-group { display: flex; gap: 4px; }
+  .effort-btn { flex: 1; padding: 8px 4px; background: #0a0a0a; border: 1px solid #333; color: #888; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 600; transition: all 0.15s; }
+  .effort-btn:hover { border-color: #555; color: #e0e0e0; }
+  .effort-btn.active { background: #00ff8822; border-color: #00ff88; color: #00ff88; }
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn-green { background: #00ff88; color: #0a0a0a; }
+  .btn-green:hover { background: #00cc6a; }
+  .btn-red { background: #ff4444; color: #fff; }
+  .btn-red:hover { background: #cc3333; }
+  .btn-outline { background: transparent; border: 1px solid #333; color: #888; }
+  .btn-outline:hover { border-color: #555; color: #e0e0e0; }
+  .btn-blue { background: #4488ff; color: #fff; }
+  .btn-blue:hover { background: #3366cc; }
+  .log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .log-table th { text-align: left; padding: 8px 12px; background: #111; color: #888; font-weight: 500; border-bottom: 1px solid #222; }
+  .log-table td { padding: 8px 12px; border-bottom: 1px solid #1a1a1a; }
+  .log-table tr:hover td { background: #1a1a1a; }
+  .refresh-btn { background: none; border: none; color: #666; cursor: pointer; font-size: 16px; }
+  .refresh-btn:hover { color: #00ff88; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .tab { flex: 1; padding: 10px; background: #0a0a0a; border: 1px solid #333; color: #888; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600; text-align: center; transition: all 0.15s; }
+  .tab:hover { border-color: #555; color: #e0e0e0; }
+  .tab.active { background: #00ff8822; border-color: #00ff88; color: #00ff88; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .tone-group { display: flex; gap: 4px; }
+  .tone-btn { flex: 1; padding: 8px 4px; background: #0a0a0a; border: 1px solid #333; color: #888; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 11px; font-weight: 600; transition: all 0.15s; }
+  .tone-btn:hover { border-color: #555; color: #e0e0e0; }
+  .tone-btn.active { background: #4488ff22; border-color: #4488ff; color: #4488ff; }
+
+  .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .model-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .model-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.4), transparent);
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  .model-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+  .model-card:hover::before { opacity: 1; }
+  .model-card.active {
+    border-color: #00ff88;
+    background: rgba(0, 255, 136, 0.05);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.1);
+  }
+  .model-card.active::before { opacity: 1; }
+  .model-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .model-card-name { font-size: 15px; font-weight: 600; color: #e0e0e0; }
+  .model-card-provider { font-size: 11px; color: #666; margin-top: 2px; }
+  .model-card-badge { font-size: 10px; padding: 3px 8px; border-radius: 20px; background: #00ff8822; color: #00ff88; font-weight: 600; }
+  .model-card-desc { font-size: 12px; color: #888; line-height: 1.5; margin-bottom: 14px; min-height: 36px; }
+  .model-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .model-tag {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    color: #aaa;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .model-card-meta { display: flex; gap: 16px; font-size: 11px; color: #666; }
+  .model-card-meta span { display: flex; align-items: center; gap: 4px; }
+  .meta-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .meta-dot.green { background: #00ff88; }
+  .meta-dot.yellow { background: #ffaa00; }
+  .meta-dot.blue { background: #4488ff; }
+
+  .btn-group { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-row .btn { flex: 1; }
+
+  .doctor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .doctor-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #0a0a0a; border-radius: 6px; }
+  .doctor-name { font-size: 12px; color: #888; }
+
+  @media (max-width: 768px) { .container { grid-template-columns: 1fr; } .sidebar { border-right: none; border-bottom: 1px solid #222; } .model-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="sidebar">
+    <div>
+      <h1>oplire <span>v2.5.0</span></h1>
+      <p style="color: #666; font-size: 12px; margin-top: 4px;">Free models via Claude Code</p>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <h2>System Status</h2>
+        <button class="refresh-btn" onclick="refreshStatus()">&#8635;</button>
+      </div>
+      <div class="status-row">
+        <span class="status-label">WARP</span>
+        <span id="warp-status" class="badge badge-gray">checking...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Tor</span>
+        <span id="tor-status" class="badge badge-gray">checking...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">OpenCode Zen</span>
+        <span id="opencode-status" class="badge badge-gray">checking...</span>
+      </div>
+      <div class="status-row">
+        <span class="status-label">Proxy</span>
+        <span id="proxy-status" class="badge badge-green">active</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Routing</h2>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('warp')">WARP</button>
+        <button class="tab" onclick="switchTab('tor')">Tor</button>
+      </div>
+      <div id="tab-warp" class="tab-content active">
+        <div class="btn-group">
+          <button class="btn btn-outline" onclick="resetWarp()">Reset WARP IP</button>
+          <button class="btn btn-outline" onclick="fullResetWarp()">Full WARP Reset</button>
+          <button class="btn btn-outline" onclick="stopWarp()">Stop WARP</button>
+        </div>
+      </div>
+      <div id="tab-tor" class="tab-content">
+        <div class="btn-group">
+          <button class="btn btn-outline" onclick="startTor()">Start Tor</button>
+          <button class="btn btn-outline" onclick="rotateTor()">Rotate Circuit</button>
+          <button class="btn btn-outline" onclick="stopTor()">Stop Tor</button>
+        </div>
+        <div style="margin-top: 12px;">
+          <div class="status-row">
+            <span class="status-label">Exit IP</span>
+            <span id="tor-ip" class="status-value" style="font-size: 11px;">-</span>
+          </div>
+          <div class="status-row">
+            <span class="status-label">SOCKS Port</span>
+            <span id="tor-port" class="status-value">9050</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Selected Model</h2>
+      <select id="model-select" onchange="onModelChange()">
+        <option value="">Loading models...</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <h2>Effort Level</h2>
+      <div class="effort-group">
+        <button class="effort-btn" data-level="low" onclick="setEffort('low')">Low</button>
+        <button class="effort-btn" data-level="medium" onclick="setEffort('medium')">Med</button>
+        <button class="effort-btn active" data-level="high" onclick="setEffort('high')">High</button>
+        <button class="effort-btn" data-level="xhigh" onclick="setEffort('xhigh')">XHigh</button>
+        <button class="effort-btn" data-level="max" onclick="setEffort('max')">Max</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Tone</h2>
+      <div class="tone-group">
+        <button class="tone-btn" data-tone="professional" onclick="setTone('professional')">Pro</button>
+        <button class="tone-btn active" data-tone="witty" onclick="setTone('witty')">Witty</button>
+        <button class="tone-btn" data-tone="minimal" onclick="setTone('minimal')">Minimal</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Quick Install</h2>
+      <div class="btn-group">
+        <button class="btn btn-blue" onclick="installOpencode()">Install OpenCode</button>
+        <button class="btn btn-blue" onclick="installClaudeCode()">Install Claude Code</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Diagnostics</h2>
+      <div id="doctor-grid" class="doctor-grid">
+        <div class="doctor-item"><span class="doctor-name">WARP</span><span id="doc-warp" class="badge badge-gray">-</span></div>
+        <div class="doctor-item"><span class="doctor-name">Claude</span><span id="doc-claude" class="badge badge-gray">-</span></div>
+        <div class="doctor-item"><span class="doctor-name">Node</span><span id="doc-node" class="badge badge-gray">-</span></div>
+        <div class="doctor-item"><span class="doctor-name">Port</span><span id="doc-port" class="badge badge-gray">-</span></div>
+      </div>
+      <button class="btn btn-outline" style="margin-top: 8px;" onclick="runDoctor()">Run Diagnostics</button>
+    </div>
+
+    <div class="btn-group" style="margin-top: auto;">
+      <button class="btn btn-green" onclick="launchClaude()">Launch Claude Code</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="section-header">
+        <h2>Request Log</h2>
+        <button class="refresh-btn" onclick="refreshLogs()">&#8635;</button>
+      </div>
+      <table class="log-table">
+        <thead>
+          <tr><th>Time</th><th>Method</th><th>Path</th><th>Status</th><th>Latency</th></tr>
+        </thead>
+        <tbody id="log-body">
+          <tr><td colspan="5" style="text-align: center; color: #666; padding: 24px;">No requests logged yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div>
+      <div class="section-header" style="margin-bottom: 16px;">
+        <h2 style="margin-bottom: 0;">Available Models</h2>
+        <button class="refresh-btn" onclick="refreshModels()">&#8635;</button>
+      </div>
+      <div id="model-grid" class="model-grid">
+        <p style="color: #666; padding: 12px;">Loading models...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentModel = 'glm-4.7-free';
+let currentEffort = 'high';
+let currentTone = 'witty';
+let allModels = [];
+
+const MODEL_META = {
+  'glm-4.7-free': {
+    description: "Zhipu AI's flagship model. Strong at reasoning, code generation, and multilingual tasks.",
+    specialty: "Reasoning & Code",
+    strengths: ["Code generation", "Math reasoning", "Chinese + English", "Long context"],
+    speed: "Fast",
+    provider: "Zhipu AI"
+  },
+  'minimax-m2.1-free': {
+    description: "MiniMax's multimodal model. Excellent for creative writing, conversation, and tool use.",
+    specialty: "Creative & Chat",
+    strengths: ["Creative writing", "Conversation", "Tool use", "Instructions"],
+    speed: "Fast",
+    provider: "MiniMax"
+  },
+  'kimi-k2.5-free': {
+    description: "Moonshot AI's long-context model. Best for document analysis and research tasks.",
+    specialty: "Long Context",
+    strengths: ["Document analysis", "Research", "Summarization", "128K context"],
+    speed: "Medium",
+    provider: "Moonshot AI"
+  },
+  'qwen-2.5-72b-free': {
+    description: "Alibaba's 72B parameter model. Strong general-purpose performance across all benchmarks.",
+    specialty: "General Purpose",
+    strengths: ["General knowledge", "Code", "Math", "Multilingual"],
+    speed: "Medium",
+    provider: "Alibaba Cloud"
+  },
+  'llama-3.3-70b-free': {
+    description: "Meta's open-source 70B model. Excellent balance of capability and speed.",
+    specialty: "Balanced",
+    strengths: ["Code", "Reasoning", "Fast inference", "Open source"],
+    speed: "Fast",
+    provider: "Meta"
+  }
+};
+
+function getSpeedColor(speed) {
+  if (speed === 'Fast') return 'green';
+  if (speed === 'Medium') return 'yellow';
+  return 'blue';
+}
+
+function renderModelCard(m) {
+  const meta = MODEL_META[m.id] || {
+    description: m.description || 'Free model available via oplire proxy.',
+    specialty: m.specialty || 'General',
+    strengths: m.strengths || [],
+    speed: m.speed || 'Unknown',
+    provider: m.provider || 'Unknown'
+  };
+  const isActive = m.id === currentModel;
+
+  return `
+    <div class="model-card ${isActive ? 'active' : ''}" onclick="selectModel('${m.id}')">
+      <div class="model-card-header">
+        <div>
+          <div class="model-card-name">${meta.specialty || m.id}</div>
+          <div class="model-card-provider">${meta.provider}</div>
+        </div>
+        <span class="model-card-badge">free</span>
+      </div>
+      <div class="model-card-desc">${meta.description}</div>
+      <div class="model-card-tags">
+        ${meta.strengths.map(s => `<span class="model-tag">${s}</span>`).join('')}
+      </div>
+      <div class="model-card-meta">
+        <span><span class="meta-dot ${getSpeedColor(meta.speed)}"></span>${meta.speed}</span>
+        <span>128K context</span>
+        <span style="color: #00ff88;">$0.00</span>
+      </div>
+    </div>
+  `;
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+}
+
+async function refreshStatus() {
+  try {
+    const resp = await fetch('/api/status');
+    const data = await resp.json();
+
+    const warpEl = document.getElementById('warp-status');
+    if (data.warp.installed) {
+      warpEl.className = data.warp.connected ? 'badge badge-green' : 'badge badge-red';
+      warpEl.textContent = data.warp.connected ? 'Connected' : 'Disconnected';
+    } else {
+      warpEl.className = 'badge badge-gray';
+      warpEl.textContent = 'Not installed';
+    }
+
+    const torEl = document.getElementById('tor-status');
+    if (data.tor && data.tor.installed) {
+      torEl.className = data.tor.running ? 'badge badge-green' : 'badge badge-yellow';
+      torEl.textContent = data.tor.running ? 'Running' : 'Stopped';
+      if (data.tor.exit_ip) {
+        document.getElementById('tor-ip').textContent = data.tor.exit_ip;
+      }
+    } else {
+      torEl.className = 'badge badge-gray';
+      torEl.textContent = 'Not installed';
+    }
+
+    const ocEl = document.getElementById('opencode-status');
+    if (data.opencode.running) {
+      ocEl.className = 'badge badge-green';
+      ocEl.textContent = 'Running';
+    } else {
+      ocEl.className = 'badge badge-yellow';
+      ocEl.textContent = 'Fallback models active';
+    }
+
+    if (data.tone) {
+      currentTone = data.tone;
+      document.querySelectorAll('.tone-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tone === data.tone);
+      });
+    }
+  } catch (e) {
+    console.error('Status fetch failed:', e);
+  }
+}
+
+async function refreshModels() {
+  try {
+    const resp = await fetch('/api/config');
+    const data = await resp.json();
+
+    const select = document.getElementById('model-select');
+    const grid = document.getElementById('model-grid');
+
+    allModels = data.models || [];
+
+    if (allModels.length > 0) {
+      select.innerHTML = allModels.map(m =>
+        `<option value="${m.id}" ${m.id === currentModel ? 'selected' : ''}>${m.id}</option>`
+      ).join('');
+
+      grid.innerHTML = allModels.map(m => renderModelCard(m)).join('');
+    } else {
+      select.innerHTML = '<option value="glm-4.7-free">glm-4.7-free (default)</option>';
+      grid.innerHTML = renderModelCard({ id: 'glm-4.7-free' });
+    }
+  } catch (e) {
+    console.error('Models fetch failed:', e);
+  }
+}
+
+function selectModel(id) {
+  currentModel = id;
+  document.getElementById('model-select').value = id;
+  document.querySelectorAll('.model-card').forEach(el => {
+    el.classList.toggle('active', el.onclick?.toString().includes(`'${id}'`));
+  });
+  refreshModels();
+}
+
+function onModelChange() {
+  currentModel = document.getElementById('model-select').value;
+  refreshModels();
+}
+
+function setEffort(level) {
+  currentEffort = level;
+  document.querySelectorAll('.effort-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.level === level);
+  });
+}
+
+function setTone(tone) {
+  currentTone = tone;
+  document.querySelectorAll('.tone-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tone === tone);
+  });
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tone })
+  });
+}
+
+async function launchClaude() {
+  const btn = document.querySelector('.btn-green');
+  const origText = btn.textContent;
+  btn.textContent = 'Launching...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/launch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: currentModel, effort: currentEffort })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      btn.textContent = 'Launched!';
+      btn.style.background = '#00cc6a';
+      setTimeout(() => { btn.textContent = origText; btn.style.background = ''; btn.disabled = false; }, 2000);
+    } else {
+      btn.textContent = 'Failed';
+      btn.style.background = '#ff4444';
+      setTimeout(() => { btn.textContent = origText; btn.style.background = ''; btn.disabled = false; }, 2000);
+      alert(data.error + '\n\n' + (data.hint || ''));
+    }
+  } catch (e) {
+    btn.textContent = 'Error';
+    btn.style.background = '#ff4444';
+    setTimeout(() => { btn.textContent = origText; btn.style.background = ''; btn.disabled = false; }, 2000);
+    alert('Launch failed: ' + e.message);
+  }
+}
+
+async function resetWarp() {
+  if (!confirm('Reset WARP IP address?\n\nThis will disconnect and reconnect WARP.')) return;
+  try {
+    const resp = await fetch('/api/warp/reset', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { alert('WARP reset complete!'); refreshStatus(); }
+    else { alert('WARP reset failed: ' + (data.error || 'unknown error')); }
+  } catch (e) { alert('WARP reset failed: ' + e.message); }
+}
+
+async function fullResetWarp() {
+  if (!confirm('Full WARP reset?\n\nThis will disconnect, re-register, and reconnect WARP.')) return;
+  try {
+    const resp = await fetch('/api/warp/full-reset', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { alert('Full WARP reset complete!'); refreshStatus(); }
+    else { alert('Full WARP reset failed: ' + (data.error || 'unknown error')); }
+  } catch (e) { alert('Full WARP reset failed: ' + e.message); }
+}
+
+async function stopWarp() {
+  if (!confirm('Disconnect WARP?')) return;
+  try {
+    const resp = await fetch('/api/warp/stop', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { alert('WARP disconnected!'); refreshStatus(); }
+    else { alert('WARP stop failed: ' + (data.error || 'unknown error')); }
+  } catch (e) { alert('WARP stop failed: ' + e.message); }
+}
+
+async function startTor() {
+  try {
+    const resp = await fetch('/api/tor/start', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { alert('Tor started!'); refreshStatus(); }
+    else { alert('Tor start failed: ' + (data.error || 'unknown error')); }
+  } catch (e) { alert('Tor start failed: ' + e.message); }
+}
+
+async function rotateTor() {
+  try {
+    const resp = await fetch('/api/tor/rotate', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { alert('Tor circuit rotated!'); refreshStatus(); }
+    else { alert('Tor rotate failed: ' + (data.error || 'unknown error')); }
+  } catch (e) { alert('Tor rotate failed: ' + e.message); }
+}
+
+async function stopTor() {
+  if (!confirm('Stop Tor?')) return;
+  try {
+    const resp = await fetch('/api/tor/stop', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { alert('Tor stopped!'); refreshStatus(); }
+    else { alert('Tor stop failed: ' + (data.error || 'unknown error')); }
+  } catch (e) { alert('Tor stop failed: ' + e.message); }
+}
+
+async function installOpencode() {
+  if (!confirm('Install OpenCode via npm?')) return;
+  try {
+    const resp = await fetch('/api/install/opencode', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { alert('OpenCode installed!'); runDoctor(); }
+    else { alert('Install failed: ' + (data.error || 'unknown error')); }
+  } catch (e) { alert('Install failed: ' + e.message); }
+}
+
+async function installClaudeCode() {
+  if (!confirm('Install Claude Code via npm?')) return;
+  try {
+    const resp = await fetch('/api/install/claude-code', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { alert('Claude Code installed!'); runDoctor(); }
+    else { alert('Install failed: ' + (data.error || 'unknown error')); }
+  } catch (e) { alert('Install failed: ' + e.message); }
+}
+
+async function runDoctor() {
+  try {
+    const resp = await fetch('/api/doctor');
+    const data = await resp.json();
+    if (data.checks) {
+      data.checks.forEach(check => {
+        const el = document.getElementById(`doc-${check.name.toLowerCase()}`);
+        if (el) {
+          el.className = check.ok ? 'badge badge-green' : 'badge badge-red';
+          el.textContent = check.ok ? 'OK' : 'Missing';
+        }
+      });
+    }
+  } catch (e) { console.error('Doctor failed:', e); }
+}
+
+async function refreshLogs() {
+  try {
+    const resp = await fetch('/api/logs');
+    const data = await resp.json();
+    const body = document.getElementById('log-body');
+    if (data.logs && data.logs.length > 0) {
+      body.innerHTML = data.logs.map(log => `
+        <tr>
+          <td>${log.timestamp}</td><td>${log.method}</td><td>${log.path}</td>
+          <td><span class="badge ${log.status < 400 ? 'badge-green' : 'badge-red'}">${log.status}</span></td>
+          <td>${log.duration_ms}ms</td>
+        </tr>
+      `).join('');
+    }
+  } catch (e) { console.error('Logs fetch failed:', e); }
+}
+
+refreshStatus();
+refreshModels();
+runDoctor();
+setInterval(refreshStatus, 5000);
+</script>
+</body>
+</html>

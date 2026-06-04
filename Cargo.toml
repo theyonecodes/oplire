@@ -1,6 +1,6 @@
 [package]
 name = "oplire-reset"
-version = "2.4.0"
+version = "2.5.0"
 edition = "2021"
 description = "OpenCode Limit Reset + Anthropic Proxy Bridge"
 authors = ["Berke Oruc"]
@@ -22,7 +22,7 @@ thiserror = "1.0"
 anyhow = "1.0"
 tokio = { version = "1", features = ["full", "process"] }
 axum = { version = "0.7", features = ["json", "query"] }
-reqwest = { version = "0.12", features = ["json", "stream", "gzip", "brotli", "blocking"] }
+reqwest = { version = "0.12", features = ["json", "stream", "gzip", "brotli", "blocking", "socks"] }
 hyper = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.5", features = ["trace", "cors", "fs"] }
@@ -32,6 +32,7 @@ bytes = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.5"
+open = "5"
 
 [dev-dependencies]
 tempfile = "3.10"
