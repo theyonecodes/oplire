@@ -18,6 +18,56 @@ _|"""""|_| """ |_|"""""|_|"""""|_|"""""|_|"""""|
 1. **WARP Rate Limit Reset** — Rotates your IP via Cloudflare WARP to reset OpenCode rate limits
 2. **Anthropic Proxy Bridge** — Reverse proxy that connects Claude Code to OpenCode Zen's free models with automatic rate limit recovery
 
+### What is a Proxy? (For Non-Technical Users)
+
+Think of a proxy like a **middleman** between you and the internet.
+
+**Without proxy:**
+```
+You → Internet
+```
+
+**With proxy:**
+```
+You → Middleman (oplire) → Internet
+```
+
+**Why does this matter?**
+
+1. **Access blocked content** — Some services limit how many requests you can make from one IP address. A proxy can change your IP address so you can keep using the service.
+
+2. **Privacy** — The website sees the proxy's IP address, not yours.
+
+3. **Free models** — oplire connects Claude Code (an AI coding assistant) to free AI models that would otherwise require payment.
+
+**In simple terms:** oplire is a smart middleman that:
+- Takes your requests
+- Sends them through different IP addresses (WARP or Tor)
+- Delivers the responses back to you
+- Helps you avoid rate limits and use free AI models
+
+### How Does It Work?
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
+│ Claude Code │────▶│  oplire      │────▶│  OpenCode Zen   │
+│             │◀────│  Proxy       │◀────│  (free models)  │
+└─────────────┘     └──────────────┘     └─────────────────┘
+                          │
+                    ┌─────┴─────┐
+                    │  WARP /   │
+                    │  Tor      │
+                    └───────────┘
+```
+
+1. **Claude Code** (your AI assistant) sends a request
+2. **oplire** receives it and translates it to work with free models
+3. **WARP/Tor** routes it through different IP addresses
+4. **OpenCode Zen** processes it and sends back the response
+5. **oplire** translates the response back to Claude Code
+
+You don't need to understand any of this — just run `oplire start` and it works!
+
 ### Features
 
 - **One-liner CLI** — `oplire start` launches proxy + Claude Code in one command
