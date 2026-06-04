@@ -34,7 +34,7 @@ _|"""""|_| """ |_|"""""|_|"""""|_|"""""|_|"""""|
 
 **No build tools. No Rust. No pain.**
 
-1. Download `oplire-v2.5.0.exe` from [Releases](https://github.com/theyonecodes/oplire/releases/download/v2.5.0/oplire-v2.5.0.exe)
+1. Download `oplire-v2.6.0.exe` from [Releases](https://github.com/theyonecodes/oplire/releases/download/v2.6.0/oplire-v2.6.0.exe)
 2. Put it somewhere in your PATH (e.g. `C:\Users\You\.cargo\bin\`)
 3. Open PowerShell and run:
 
