@@ -296,6 +296,43 @@ The proxy exposes a REST API for the web control panel:
 
 ---
 
+## Versioning
+
+We follow [Semantic Versioning](https://semver.org/):
+
+```
+MAJOR.MINOR.PATCH
+```
+
+| Increment | When | Example |
+|-----------|------|---------|
+| **MAJOR** | Breaking changes (CLI args, config format, API) | 1.0.0 → 2.0.0 |
+| **MINOR** | New features, backwards compatible | 2.5.0 → 2.6.0 |
+| **PATCH** | Bug fixes, small improvements | 2.6.0 → 2.6.1 |
+
+### Release Process
+
+**Automated via GitHub Actions:**
+
+1. Update version in `Cargo.toml`
+2. Update download link in `README.md`
+3. Commit: `git commit -m "bump version to X.Y.Z"`
+4. Tag: `git tag vX.Y.Z`
+5. Push: `git push origin master --tags`
+
+GitHub Actions will automatically build binaries for Windows, Linux, and macOS, then create a GitHub Release with all assets.
+
+**Manual:**
+
+```bash
+cargo build --release
+gh release create vX.Y.Z target/release/oplire.exe \
+  --title "Release vX.Y.Z" \
+  --notes "Release notes"
+```
+
+---
+
 ## Credits
 
 Created by [Berke Oruc](https://github.com/BerkeOruc). This fork adds pre-built Windows binaries, web control panel, Tor integration, and simplified installation.
