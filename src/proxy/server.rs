@@ -59,6 +59,8 @@ pub async fn start_proxy_server(config: ProxyConfig) -> anyhow::Result<()> {
         .route("/api/warp/stop", post(crate::gui::api_warp_stop))
         .route("/api/install/opencode", post(crate::gui::api_install_opencode))
         .route("/api/install/claude-code", post(crate::gui::api_install_claude_code))
+        .route("/api/install/warp", post(crate::gui::api_install_warp))
+        .route("/api/install/tor", post(crate::gui::api_install_tor))
         .route("/api/tor/status", get(crate::gui::api_tor_status))
         .route("/api/tor/rotate", post(crate::gui::api_tor_rotate))
         .route("/api/tor/start", post(crate::gui::api_tor_start))

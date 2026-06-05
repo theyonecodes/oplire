@@ -443,7 +443,10 @@ async function saveAdvancedConfig() {
 let hasCheckedSetup = false;
 async function runSetupWizard() {
   closeModal('modal-setup');
+  logAction('ACTION: Starting Initial Setup...', 'info');
+  await installWarp();
   await installClaudeCode();
+  logAction('SUCCESS: Setup complete!', 'success');
 }
 
 function logAction(msg, type = 'info') {
@@ -578,7 +581,7 @@ async function refreshStatus() {
       warpEl.textContent = data.warp.connected ? 'Connected' : 'Disconnected';
     } else {
       warpEl.className = 'badge badge-gray';
-      warpEl.textContent = 'Not installed';
+      warpEl.innerHTML = 'Not installed <a href="#" onclick="installWarp()" style="color:#00ff88; margin-left: 6px;">[Install]</a>';
     }
 
     const torEl = document.getElementById('tor-status');
@@ -591,7 +594,7 @@ async function refreshStatus() {
         }
       } else {
         torEl.className = 'badge badge-gray';
-        torEl.textContent = 'Not installed';
+        torEl.innerHTML = 'Not installed <a href="#" onclick="installTor()" style="color:#00ff88; margin-left: 6px;">[Install]</a>';
       }
     }
 
@@ -733,6 +736,27 @@ async function rotateTor() {
 
 async function stopTor() {
   try { await fetch('/api/tor/stop', { method: 'POST' }); refreshStatus(); } catch (e) {}
+}
+
+
+async function installWarp() {
+  logAction('ACTION: Installing Cloudflare WARP...', 'info');
+  try {
+    const resp = await fetch('/api/install/warp', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { logAction('SUCCESS: WARP installed.', 'success'); refreshStatus(); }
+    else { logAction('ERROR: Install failed: ' + (data.error || 'unknown error'), 'error'); }
+  } catch (e) { logAction('ERROR: Install failed: ' + e.message, 'error'); }
+}
+
+async function installTor() {
+  logAction('ACTION: Installing Tor Expert Bundle...', 'info');
+  try {
+    const resp = await fetch('/api/install/tor', { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) { logAction('SUCCESS: Tor installed.', 'success'); refreshStatus(); }
+    else { logAction('ERROR: Install failed: ' + (data.error || 'unknown error'), 'error'); }
+  } catch (e) { logAction('ERROR: Install failed: ' + e.message, 'error'); }
 }
 
 async function installOpencode() {

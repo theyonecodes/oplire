@@ -464,6 +464,67 @@ pub async fn api_install_claude_code() -> Response {
     install_package("Claude Code").await
 }
 
+// === Install WARP ===
+pub async fn api_install_warp() -> Response {
+    if cfg!(target_os = "windows") {
+        match tokio::process::Command::new("winget")
+            .args(["install", "--id", "Cloudflare.Warp", "--accept-package-agreements", "--accept-source-agreements"])
+            .output().await
+        {
+            Ok(output) if output.status.success() => {
+                (StatusCode::OK, Json(json!({"ok": true, "message": "WARP installed successfully"}))).into_response()
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": format!("Install failed: {}\n{}", stderr, stdout)}))).into_response()
+            }
+            Err(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": format!("Failed to run winget: {}", e)}))).into_response()
+            }
+        }
+    } else {
+        (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Auto-install for WARP is only supported on Windows currently."}))).into_response()
+    }
+}
+
+// === Install Tor ===
+pub async fn api_install_tor() -> Response {
+    if cfg!(target_os = "windows") {
+        let ps_script = r#"
+            $ErrorActionPreference = 'Stop'
+            $url = "https://dist.torproject.org/torbrowser/14.0.7/tor-expert-bundle-windows-x86_64-14.0.7.tar.gz"
+            $dest = "C:\tor"
+            if (!(Test-Path $dest)) { New-Item -ItemType Directory -Force -Path $dest | Out-Null }
+            Invoke-WebRequest -Uri $url -OutFile "$dest\tor.tar.gz"
+            tar -xf "$dest\tor.tar.gz" -C $dest
+            $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+            if ($userPath -notmatch "C:\\tor\\tor") {
+                [Environment]::SetEnvironmentVariable("Path", "$userPath;C:\tor\tor", "User")
+            }
+            Remove-Item "$dest\tor.tar.gz" -Force
+        "#;
+        match tokio::process::Command::new("powershell")
+            .args(["-Command", ps_script])
+            .output().await
+        {
+            Ok(output) if output.status.success() => {
+                (StatusCode::OK, Json(json!({"ok": true, "message": "Tor installed successfully to C:\\tor"}))).into_response()
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": format!("Install failed: {}", stderr)}))).into_response()
+            }
+            Err(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": format!("Failed to run powershell: {}", e)}))).into_response()
+            }
+        }
+    } else {
+        (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Auto-install for Tor is only supported on Windows currently."}))).into_response()
+    }
+}
+
+
 async fn install_package(name: &str) -> Response {
     let pkg = match name {
         "OpenCode" => "opencode-ai",
