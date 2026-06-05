@@ -493,7 +493,7 @@ pub async fn api_install_tor() -> Response {
     if cfg!(target_os = "windows") {
         let ps_script = r#"
             $ErrorActionPreference = 'Stop'
-            $url = "https://dist.torproject.org/torbrowser/14.0.7/tor-expert-bundle-windows-x86_64-14.0.7.tar.gz"
+            $url = "https://dist.torproject.org/torbrowser/15.0.15/tor-expert-bundle-windows-x86_64-15.0.15.tar.gz"
             $dest = "C:\tor"
             if (!(Test-Path $dest)) { New-Item -ItemType Directory -Force -Path $dest | Out-Null }
             Invoke-WebRequest -Uri $url -OutFile "$dest\tor.tar.gz"
