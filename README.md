@@ -100,7 +100,7 @@ Before using oplire, make sure you have:
 
 **No build tools. No Rust. No pain.**
 
-1. Download `oplire-v2.6.0.exe` from [Releases](https://github.com/theyonecodes/oplire/releases/download/v2.6.0/oplire-v2.6.0.exe)
+1. Download `oplire-v2.6.1.exe` from [Releases](https://github.com/theyonecodes/oplire/releases/download/v2.6.1/oplire-v2.6.1.exe)
 2. Put it somewhere in your PATH (e.g. `C:\Users\You\.cargo\bin\`)
 3. Open PowerShell and run:
 
@@ -372,6 +372,31 @@ The proxy exposes a REST API for the web control panel:
 
 ---
 
+## Logging
+
+oplire automatically logs all proxy requests to a persistent file. The log destination is:
+`~/.config/oplire/logs.jsonl`
+
+The logs are written in NDJSON format (newline-delimited JSON), allowing for easy parsing and ingestion.
+
+### Log Format
+Each line contains a JSON object representing a single request:
+```json
+{
+  "timestamp": "1717594900",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "status": 200,
+  "duration_ms": 1542,
+  "model": "glm-4.7-free",
+  "tone": "witty"
+}
+```
+
+*Note: The log format changes dynamically depending on the current tone setting. For example, the `explainer` tone adds a special `note` field to the log.*
+
+---
+
 ## Troubleshooting
 
 **"oplire" not recognized** — Make sure the .exe location is in your PATH, or run it from its folder.
@@ -422,8 +447,8 @@ MAJOR.MINOR.PATCH
 | Increment | When | Example |
 |-----------|------|---------|
 | **MAJOR** | Breaking changes (CLI args, config format, API) | 1.0.0 → 2.0.0 |
-| **MINOR** | New features, backwards compatible | 2.5.0 → 2.6.0 |
-| **PATCH** | Bug fixes, small improvements | 2.6.0 → 2.6.1 |
+| **MINOR** | New features, backwards compatible | 2.5.0 → 2.6.1 |
+| **PATCH** | Bug fixes, small improvements | 2.6.1 → 2.6.1 |
 
 ### Release Process
 

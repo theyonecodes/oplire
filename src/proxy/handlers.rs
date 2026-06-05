@@ -26,6 +26,7 @@ pub struct RequestLog {
     pub status: u16,
     pub duration_ms: u64,
     pub model: Option<String>,
+    pub tone: String,
 }
 
 pub struct ProxyState {
@@ -245,7 +246,10 @@ pub async fn handle_messages(
     let api_key = state_guard.config.opencode_api_key.clone();
     let max_retries = state_guard.config.max_retries;
     let reset_delay = state_guard.config.warp_reset_delay_ms;
+    let tone = state_guard.tone.clone();
     drop(state_guard);
+
+    let start_time = std::time::Instant::now();
 
     let mut retry_count = 0;
 
@@ -257,7 +261,24 @@ pub async fn handle_messages(
         };
 
         match result {
-            Ok(response) => return response,
+            Ok(response) => {
+                let duration_ms = start_time.elapsed().as_millis() as u64;
+                let log = RequestLog {
+                    timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs().to_string(),
+                    method: "POST".to_string(),
+                    path: "/v1/chat/completions".to_string(),
+                    status: response.status().as_u16(),
+                    duration_ms,
+                    model: Some(model.clone()),
+                    tone: tone.clone(),
+                };
+                persist_log(&log);
+                let mut sg = state.lock().await;
+                sg.logs.push_back(log);
+                if sg.logs.len() > 100 { sg.logs.pop_front(); }
+                drop(sg);
+                return response;
+            }
             Err(ProxyError::RateLimited) => {
                 retry_count += 1;
                 if retry_count > max_retries {
@@ -441,4 +462,53 @@ fn error_response(message: &str) -> Response {
 enum ProxyError {
     RateLimited,
     RequestFailed(String),
+}
+
+fn persist_log(log: &RequestLog) {
+    let mut dir = if cfg!(target_os = "macos") {
+        if let Ok(home) = std::env::var("HOME") {
+            let mut p = std::path::PathBuf::from(home);
+            p.push("Library");
+            p.push("Application Support");
+            p
+        } else { std::path::PathBuf::from(".") }
+    } else if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+        std::path::PathBuf::from(xdg)
+    } else if let Ok(home) = std::env::var("HOME") {
+        let mut p = std::path::PathBuf::from(home);
+        p.push(".config");
+        p
+    } else {
+        std::path::PathBuf::from(".")
+    };
+    dir.push("oplire");
+    let _ = std::fs::create_dir_all(&dir);
+    
+    let file_path = dir.join("logs.jsonl");
+    tracing::info!("Attempting to persist log to: {:?}", file_path);
+    match std::fs::OpenOptions::new().create(true).append(true).open(&file_path) {
+        Ok(mut file) => {
+            let log_val = if log.tone == "explainer" {
+                serde_json::json!({
+                    "timestamp": log.timestamp,
+                    "method": log.method,
+                    "path": log.path,
+                    "status": log.status,
+                    "duration_ms": log.duration_ms,
+                    "model": log.model,
+                    "tone": log.tone,
+                    "note": "explainer tone requests"
+                })
+            } else {
+                serde_json::json!(log)
+            };
+            use std::io::Write;
+            if let Err(e) = writeln!(file, "{}", log_val) {
+                tracing::error!("Failed to write to logs.jsonl: {}", e);
+            }
+        }
+        Err(e) => {
+            tracing::error!("Failed to open logs.jsonl at {:?}: {}", file_path, e);
+        }
+    }
 }
