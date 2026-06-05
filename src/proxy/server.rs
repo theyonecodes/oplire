@@ -65,6 +65,8 @@ pub async fn start_proxy_server(config: ProxyConfig) -> anyhow::Result<()> {
         .route("/api/tor/stop", post(crate::gui::api_tor_stop))
         .route("/api/tor/config", post(crate::gui::api_tor_config))
         .route("/api/settings", get(crate::gui::api_settings_get).post(crate::gui::api_settings_post))
+        .route("/api/terminal/ws", get(crate::gui::terminal::handle_ws_upgrade))
+        .route("/api/config/advanced", get(crate::gui::api_advanced_config_get).post(crate::gui::api_advanced_config_post))
         .route("/v1/models", get(handle_models))
         .route("/v1/models/{model_id}", get(handle_model_detail))
         .route("/v1/messages", post(handle_messages))

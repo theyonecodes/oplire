@@ -124,13 +124,28 @@
   .doctor-name { font-size: 12px; color: #888; }
 
   @media (max-width: 768px) { .container { grid-template-columns: 1fr; } .sidebar { border-right: none; border-bottom: 1px solid #222; } .model-grid { grid-template-columns: 1fr; } }
+  /* Modals */
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: #111; border: 1px solid #333; border-radius: 12px; width: 100%; max-width: 400px; padding: 24px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+  .modal h2 { font-size: 16px; color: #fff; margin-bottom: 16px; border-bottom: 1px solid #222; padding-bottom: 12px; }
+  .modal p { font-size: 13px; color: #aaa; margin-bottom: 16px; line-height: 1.5; }
+  .modal .btn-group { margin-top: 20px; display: flex; gap: 8px; justify-content: flex-end; flex-direction: row; }
+  .modal .btn-group .btn { width: auto; padding: 8px 16px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 11px; color: #888; margin-bottom: 4px; }
+  .form-group input { width: 100%; background: #0a0a0a; border: 1px solid #333; color: #e0e0e0; padding: 8px 12px; border-radius: 6px; font-family: inherit; font-size: 13px; }
+  .gear-icon { cursor: pointer; color: #888; font-size: 16px; text-decoration: none; margin-left: 8px; }
+  .gear-icon:hover { color: #fff; }
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 </head>
 <body>
 <div class="container">
   <div class="sidebar">
     <div>
-      <h1>oplire <span>v2.6.3</span></h1>
+            <h1>oplire <span>v2.6.3</span> <a class="gear-icon" onclick="openAdvancedSettings()" title="Advanced Settings">⚙</a></h1>
       <p style="color: #666; font-size: 12px; margin-top: 4px;">Free models via Claude Code</p>
     </div>
 
@@ -241,6 +256,40 @@
   </div>
 
   <div class="main">
+        <div class="card" style="margin-bottom: 20px;">
+      <h2>Automation</h2>
+      <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
+        <span style="font-size: 13px; color: #e0e0e0;">Auto-Resolve Rate Limits (Watch Mode)</span>
+        <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
+          <input type="checkbox" id="watch-mode-toggle" onchange="toggleWatchMode(this.checked)" style="opacity: 0; width: 0; height: 0;">
+          <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px;"></span>
+        </label>
+      </div>
+      <style>
+        input:checked + .slider { background-color: #00ff88; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider:before { transform: translateX(14px); }
+      </style>
+    </div>
+    <div class="card" style="margin-bottom: 20px;">
+      <h2>System Terminal</h2>
+      <div id="terminal" style="height: 400px; width: 100%;"></div>
+    </div>
+        <div class="card" style="margin-bottom: 20px;">
+      <h2>Automation</h2>
+      <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
+        <span style="font-size: 13px; color: #e0e0e0;">Auto-Resolve Rate Limits (Watch Mode)</span>
+        <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
+          <input type="checkbox" id="watch-mode-toggle" onchange="toggleWatchMode(this.checked)" style="opacity: 0; width: 0; height: 0;">
+          <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px;"></span>
+        </label>
+      </div>
+      <style>
+        input:checked + .slider { background-color: #00ff88; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider:before { transform: translateX(14px); }
+      </style>
+    </div>
     <div class="card" style="margin-bottom: 20px;">
       <div class="section-header">
         <h2>Request Log</h2>
@@ -268,7 +317,110 @@
   </div>
 </div>
 
+<!-- Advanced Settings Modal -->
+<div id="modal-advanced" class="modal-overlay">
+  <div class="modal">
+    <h2>Advanced Settings</h2>
+    <div class="form-group">
+      <label>Max Retries (WARP)</label>
+      <input type="number" id="adv-retries" />
+    </div>
+    <div class="form-group">
+      <label>WARP Reset Delay (ms)</label>
+      <input type="number" id="adv-warp-delay" />
+    </div>
+    <div class="form-group">
+      <label>OpenCode Base URL</label>
+      <input type="text" id="adv-opencode-url" />
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-outline" onclick="closeModal('modal-advanced')">Cancel</button>
+      <button class="btn btn-green" onclick="saveAdvancedConfig()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Setup Wizard Modal -->
+<div id="modal-setup" class="modal-overlay">
+  <div class="modal">
+    <h2>Welcome to oplire! 👋</h2>
+    <p>It looks like this is your first time. Let's get your environment set up so you can start coding without rate limits.</p>
+    <p>1. We'll install <strong>Cloudflare WARP</strong> to securely rotate your IP address.<br/>2. We'll install <strong>Claude Code</strong> so you can chat with the AI.</p>
+    <div class="btn-group">
+      <button class="btn btn-outline" onclick="closeModal('modal-setup')">Skip</button>
+      <button class="btn btn-green" onclick="runSetupWizard()">Start Setup</button>
+    </div>
+  </div>
+</div>
 <script>
+const term = new Terminal({
+    theme: { background: '#0a0a0a', foreground: '#e0e0e0', cursor: '#00ff88' },
+    fontFamily: "'SF Mono', 'Cascadia Code', 'Fira Code', monospace",
+    fontSize: 12
+});
+term.open(document.getElementById('terminal'));
+
+const ws = new WebSocket('ws://' + window.location.host + '/api/terminal/ws');
+ws.onmessage = (e) => { term.write(e.data); };
+term.onData(data => { if (ws.readyState === WebSocket.OPEN) ws.send(data); });
+
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+async function openAdvancedSettings() {
+  try {
+    const resp = await fetch('/api/config/advanced');
+    const data = await resp.json();
+    document.getElementById('adv-retries').value = data.max_retries;
+    document.getElementById('adv-warp-delay').value = data.warp_reset_delay_ms;
+    document.getElementById('adv-opencode-url').value = data.opencode_base_url;
+    openModal('modal-advanced');
+  } catch (e) { alert('Failed to load advanced config: ' + e.message); }
+}
+
+async function saveAdvancedConfig() {
+  try {
+    await fetch('/api/config/advanced', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        max_retries: parseInt(document.getElementById('adv-retries').value),
+        warp_reset_delay_ms: parseInt(document.getElementById('adv-warp-delay').value),
+        opencode_base_url: document.getElementById('adv-opencode-url').value
+      })
+    });
+    closeModal('modal-advanced');
+    alert('Advanced settings saved!');
+  } catch (e) { alert('Save failed: ' + e.message); }
+}
+
+let hasCheckedSetup = false;
+async function runSetupWizard() {
+  closeModal('modal-setup');
+  await installClaudeCode();
+}
+
+
+async function toggleWatchMode(enabled) {
+  try {
+    const retries = enabled ? 3 : 0;
+    await fetch('/api/config/advanced', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ max_retries: retries })
+    });
+  } catch (e) { alert('Failed to toggle Watch Mode: ' + e.message); }
+}
+
+async function initWatchModeToggle() {
+  try {
+    const resp = await fetch('/api/config/advanced');
+    const data = await resp.json();
+    document.getElementById('watch-mode-toggle').checked = data.max_retries > 0;
+  } catch(e) {}
+}
+setInterval(initWatchModeToggle, 5000);
+initWatchModeToggle();
 let currentModel = 'glm-4.7-free';
 let currentEffort = 'high';
 let currentTone = 'witty';
@@ -362,6 +514,7 @@ async function refreshStatus() {
     const resp = await fetch('/api/status');
     const data = await resp.json();
 
+    $setupCheck
     const warpEl = document.getElementById('warp-status');
     if (data.warp.installed) {
       warpEl.className = data.warp.connected ? 'badge badge-green' : 'badge badge-red';

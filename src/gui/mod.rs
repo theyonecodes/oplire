@@ -1,3 +1,4 @@
+pub mod terminal;
 use axum::{
     extract::State,
     http::StatusCode,
@@ -568,4 +569,48 @@ pub async fn api_settings_post(
 
     info!("Tone setting changed to: {}", tone);
     (StatusCode::OK, Json(json!({"ok": true, "tone": tone}))).into_response()
+}
+
+pub async fn api_advanced_config_get(
+    State(state): State<Arc<Mutex<ProxyState>>>,
+) -> impl IntoResponse {
+    let state_guard = state.lock().await;
+    Json(json!({
+        "max_retries": state_guard.config.max_retries,
+        "warp_reset_delay_ms": state_guard.config.warp_reset_delay_ms,
+        "opencode_base_url": state_guard.config.opencode_base_url,
+    }))
+}
+
+#[derive(serde::Deserialize)]
+pub struct AdvancedConfigUpdate {
+    max_retries: Option<u32>,
+    warp_reset_delay_ms: Option<u64>,
+    opencode_base_url: Option<String>,
+}
+
+pub async fn api_advanced_config_post(
+    State(state): State<Arc<Mutex<ProxyState>>>,
+    Json(body): Json<AdvancedConfigUpdate>,
+) -> impl IntoResponse {
+    let mut state_guard = state.lock().await;
+    if let Some(mr) = body.max_retries {
+        state_guard.config.max_retries = mr;
+    }
+    if let Some(delay) = body.warp_reset_delay_ms {
+        state_guard.config.warp_reset_delay_ms = delay;
+    }
+    if let Some(url) = body.opencode_base_url {
+        state_guard.config.opencode_base_url = url;
+    }
+    let config = state_guard.config.clone();
+    drop(state_guard);
+    
+    let mut app_config = crate::config::load_config();
+    app_config.max_retries = config.max_retries;
+    app_config.warp_delay = config.warp_reset_delay_ms;
+    app_config.upstream = config.opencode_base_url.clone();
+    let _ = crate::config::save_config(&app_config);
+    
+    Json(json!({ "ok": true }))
 }

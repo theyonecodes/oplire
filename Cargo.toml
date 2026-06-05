@@ -21,7 +21,7 @@ serde_json = "1.0"
 thiserror = "1.0"
 anyhow = "1.0"
 tokio = { version = "1", features = ["full", "process"] }
-axum = { version = "0.7", features = ["json", "query"] }
+axum = { version = "0.7", features = ["json", "query", "ws"] }
 reqwest = { version = "0.12", features = ["json", "stream", "gzip", "brotli", "blocking", "socks"] }
 hyper = { version = "1", features = ["full"] }
 tower = { version = "0.5", features = ["util"] }
@@ -33,6 +33,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 url = "2.5"
 open = "5"
+portable-pty = "0.8"
 
 [dev-dependencies]
 tempfile = "3.10"
