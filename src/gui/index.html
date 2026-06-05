@@ -374,16 +374,6 @@
   </div>
 </div>
 <script>
-
-function logAction(msg, type = 'info') {
-  const logDiv = document.getElementById('action-log-content');
-  if (!logDiv) return;
-  const time = new Date().toLocaleTimeString();
-  const color = type === 'error' ? '#ff4444' : type === 'success' ? '#00ff88' : '#e0e0e0';
-  logDiv.innerHTML += `<div style="color: ${color}; margin-bottom: 4px;">[${time}] ${msg}</div>`;
-  logDiv.scrollTop = logDiv.scrollHeight;
-}
-
 function toggleGlobalMode(isNerd) {
   const body = document.body;
   const normalLabel = document.getElementById('mode-normal-label');
@@ -402,11 +392,10 @@ function toggleGlobalMode(isNerd) {
   }
 }
 
-// Initialize mode
 document.addEventListener('DOMContentLoaded', () => {
   const savedMode = localStorage.getItem('oplire_mode') || 'normal';
   const isNerd = savedMode === 'nerd';
-  document.getElementById('global-mode-toggle').checked = isNerd;
+  if(document.getElementById('global-mode-toggle')) document.getElementById('global-mode-toggle').checked = isNerd;
   toggleGlobalMode(isNerd);
 });
 
@@ -457,23 +446,36 @@ async function runSetupWizard() {
   await installClaudeCode();
 }
 
+function logAction(msg, type = 'info') {
+  const logDiv = document.getElementById('action-log-content');
+  if (!logDiv) return;
+  const time = new Date().toLocaleTimeString();
+  const color = type === 'error' ? '#ff4444' : type === 'success' ? '#00ff88' : '#e0e0e0';
+  logDiv.innerHTML += `<div style="color: ${color}; margin-bottom: 4px;">[${time}] ${msg}</div>`;
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
 
-async function toggleWatchMode(enabled) { const state = enabled ? 'Enabled' : 'Disabled'; logAction(`ACTION: Watch Mode ${state}`, 'info'); try { const retries = enabled ? 3 : 0; await fetch('/api/config/advanced', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ max_retries: retries }) }); logAction(`SUCCESS: Automation ${state}.`, 'success'); } catch (e) { logAction('ERROR: Failed to toggle Watch Mode - ' + e.message, 'error'); } },
-      body: JSON.stringify({ max_retries: retries })
-    });
-  } catch (e) { alert('Failed to toggle Watch Mode: ' + e.message); }
+async function toggleWatchMode(enabled) {
+  const state = enabled ? 'Enabled' : 'Disabled';
+  logAction(`ACTION: Watch Mode ${state}`, 'info');
+  try {
+    const retries = enabled ? 3 : 0;
+    await fetch('/api/config/advanced', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ max_retries: retries }) });
+    logAction(`SUCCESS: Automation ${state}.`, 'success');
+  } catch (e) { logAction('ERROR: Failed to toggle Watch Mode: ' + e.message, 'error'); }
 }
 
 async function initWatchModeToggle() {
   try {
     const resp = await fetch('/api/config/advanced');
     const data = await resp.json();
-    document.getElementById('watch-mode-toggle').checked = data.max_retries > 0;
+    if(document.getElementById('watch-mode-toggle')) document.getElementById('watch-mode-toggle').checked = data.max_retries > 0;
     if(document.getElementById('hero-watch-mode')) document.getElementById('hero-watch-mode').checked = data.max_retries > 0;
   } catch(e) {}
 }
 setInterval(initWatchModeToggle, 5000);
 initWatchModeToggle();
+
 let currentModel = 'glm-4.7-free';
 let currentEffort = 'high';
 let currentTone = 'witty';
@@ -508,10 +510,10 @@ const MODEL_META = {
     speed: "Medium",
     provider: "Alibaba Cloud"
   },
-  'llama-3.3-70b-free': {
-    description: "Meta's open-source 70B model. Excellent balance of capability and speed.",
+  'meta-llama-3.1-70b-instruct-free': {
+    description: "Meta's open source 70B model. Excellent balance of capability and speed.",
     specialty: "Balanced",
-    strengths: ["Code", "Reasoning", "Fast inference", "Open source"],
+    strengths: ["Fast response", "Open weights", "Reasoning", "Helpful assistant"],
     speed: "Fast",
     provider: "Meta"
   }
@@ -520,31 +522,34 @@ const MODEL_META = {
 function getSpeedColor(speed) {
   if (speed === 'Fast') return 'green';
   if (speed === 'Medium') return 'yellow';
-  return 'blue';
+  return 'red';
 }
 
-function renderModelCard(m) {
-  const meta = MODEL_META[m.id] || {
-    description: m.description || 'Free model available via oplire proxy.',
-    specialty: m.specialty || 'General',
-    strengths: m.strengths || [],
-    speed: m.speed || 'Unknown',
-    provider: m.provider || 'Unknown'
+function renderModelCard(model) {
+  const meta = MODEL_META[model.id] || {
+    description: "Standard model endpoint.",
+    specialty: "Standard",
+    strengths: ["General capabilities"],
+    speed: "Variable",
+    provider: "Unknown"
   };
-  const isActive = m.id === currentModel;
 
+  const isActive = model.id === currentModel;
+  
   return `
-    <div class="model-card ${isActive ? 'active' : ''}" onclick="selectModel('${m.id}')">
+    <div class="model-card ${isActive ? 'active' : ''}" onclick="selectModel('${model.id}')">
       <div class="model-card-header">
         <div>
-          <div class="model-card-name">${meta.specialty || m.id}</div>
-          <div class="model-card-provider">${meta.provider}</div>
+          <div class="model-card-name">${model.id}</div>
+          <div class="model-card-provider">by ${meta.provider}</div>
         </div>
-        <span class="model-card-badge">free</span>
+        <span class="model-card-badge">${meta.specialty}</span>
       </div>
-      <div class="model-card-desc">${meta.description}</div>
-      <div class="model-card-tags">
-        ${meta.strengths.map(s => `<span class="model-tag">${s}</span>`).join('')}
+      <p style="color: #aaa; font-size: 12px; margin-bottom: 16px; line-height: 1.4;">
+        ${meta.description}
+      </p>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px;">
+        ${meta.strengths.map(s => `<span style="font-size: 10px; color: #888; background: #0a0a0a; padding: 2px 6px; border-radius: 4px; border: 1px solid #222;">${s}</span>`).join('')}
       </div>
       <div class="model-card-meta">
         <span><span class="meta-dot ${getSpeedColor(meta.speed)}"></span>${meta.speed}</span>
@@ -567,7 +572,6 @@ async function refreshStatus() {
     const resp = await fetch('/api/status');
     const data = await resp.json();
 
-    $setupCheck
     const warpEl = document.getElementById('warp-status');
     if (data.warp.installed) {
       warpEl.className = data.warp.connected ? 'badge badge-green' : 'badge badge-red';
@@ -578,15 +582,17 @@ async function refreshStatus() {
     }
 
     const torEl = document.getElementById('tor-status');
-    if (data.tor && data.tor.installed) {
-      torEl.className = data.tor.running ? 'badge badge-green' : 'badge badge-yellow';
-      torEl.textContent = data.tor.running ? 'Running' : 'Stopped';
-      if (data.tor.exit_ip) {
-        document.getElementById('tor-ip').textContent = data.tor.exit_ip;
+    if (torEl) {
+      if (data.tor && data.tor.installed) {
+        torEl.className = data.tor.running ? 'badge badge-green' : 'badge badge-yellow';
+        torEl.textContent = data.tor.running ? 'Running' : 'Stopped';
+        if (data.tor.exit_ip) {
+          document.getElementById('tor-ip').textContent = data.tor.exit_ip;
+        }
+      } else {
+        torEl.className = 'badge badge-gray';
+        torEl.textContent = 'Not installed';
       }
-    } else {
-      torEl.className = 'badge badge-gray';
-      torEl.textContent = 'Not installed';
     }
 
     const ocEl = document.getElementById('opencode-status');
@@ -648,199 +654,189 @@ function onModelChange() {
   refreshModels();
 }
 
-function setEffort(level) {
-  currentEffort = level;
-  document.querySelectorAll('.effort-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.level === level);
-  });
-}
-
-function setTone(tone) {
-  currentTone = tone;
-  document.querySelectorAll('.tone-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tone === tone);
-  });
-  fetch('/api/settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tone })
-  });
-}
-
-async function launchClaude() { logAction('ACTION: Launching Claude Code...', 'info'); try { await fetch('/api/launch', { method: 'POST' }); logAction('SUCCESS: Launched successfully.', 'success'); } catch (e) { logAction('ERROR: Launch failed - ' + e.message, 'error'); } },
-      body: JSON.stringify({ model: currentModel, effort: currentEffort })
+async function setEffort(level) {
+  try {
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ effort_level: level })
     });
+    currentEffort = level;
+    document.querySelectorAll('.effort-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.level === level);
+    });
+  } catch (e) { alert('Failed to set effort level'); }
+}
+
+async function setTone(tone) {
+  try {
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tone })
+    });
+    currentTone = tone;
+    document.querySelectorAll('.tone-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tone === tone);
+    });
+  } catch (e) { alert('Failed to set tone'); }
+}
+
+async function launchClaude() {
+  logAction('ACTION: Launching Claude Code...', 'info');
+  try {
+    const resp = await fetch('/api/launch', { method: 'POST' });
     const data = await resp.json();
-    if (data.ok) {
-      btn.textContent = 'Launched!';
-      btn.style.background = '#00cc6a';
-      setTimeout(() => { btn.textContent = origText; btn.style.background = ''; btn.disabled = false; }, 2000);
-    } else {
-      btn.textContent = 'Failed';
-      btn.style.background = '#ff4444';
-      setTimeout(() => { btn.textContent = origText; btn.style.background = ''; btn.disabled = false; }, 2000);
-
-      let msg = data.error || 'Unknown error';
-      if (data.hint) msg += '\n\n' + data.hint;
-
-      if (data.gui_install_available && data.install_command) {
-        if (confirm(msg + '\n\nWould you like to install it now?')) {
-          installPackage(data.install_command);
-        }
-      } else {
-        alert(msg);
-      }
-    }
-  } catch (e) {
-    btn.textContent = 'Error';
-    btn.style.background = '#ff4444';
-    setTimeout(() => { btn.textContent = origText; btn.style.background = ''; btn.disabled = false; }, 2000);
-    alert('Launch failed: ' + e.message);
-  }
+    if (data.ok) { logAction('SUCCESS: Launched successfully.', 'success'); refreshStatus(); }
+    else { logAction('ERROR: Launch failed: ' + (data.error || 'unknown error'), 'error'); }
+  } catch (e) { logAction('ERROR: Launch failed: ' + e.message, 'error'); }
 }
 
 async function installPackage(cmd) {
-  const pkg = cmd.replace('npm install -g ', '').trim();
-  const endpoint = pkg.includes('claude') ? 'claude-code' : 'opencode';
-  try {
-    const resp = await fetch('/api/install/' + endpoint, { method: 'POST' });
-    const data = await resp.json();
-    if (data.ok) {
-      alert('Installed successfully! You can now launch Claude Code.');
-      runDoctor();
-    } else {
-      alert('Install failed: ' + (data.error || 'unknown error'));
-    }
-  } catch (e) {
-    alert('Install failed: ' + e.message);
-  }
+  term.write(`\r\n\x1b[1;36m$ ${cmd}\x1b[0m\r\n`);
 }
 
-async function resetWarp() { logAction('ACTION: Resetting WARP IP to bypass limits...', 'info'); try { await fetch('/api/warp/reset', { method: 'POST' }); logAction('SUCCESS: IP successfully rotated.', 'success'); } catch (e) { logAction('ERROR: Failed to reset WARP IP - ' + e.message, 'error'); } });
+async function resetWarp() {
+  logAction('ACTION: Resetting WARP IP to bypass limits...', 'info');
+  try {
+    const resp = await fetch('/api/warp/reset', { method: 'POST' });
     const data = await resp.json();
-    if (data.ok) { alert('WARP reset complete!'); refreshStatus(); }
-    else { alert('WARP reset failed: ' + (data.error || 'unknown error')); }
-  } catch (e) { alert('WARP reset failed: ' + e.message); }
+    if (data.ok) { logAction('SUCCESS: IP successfully rotated.', 'success'); refreshStatus(); }
+    else { logAction('ERROR: WARP reset failed: ' + (data.error || 'unknown error'), 'error'); }
+  } catch (e) { logAction('ERROR: WARP reset failed: ' + e.message, 'error'); }
 }
 
 async function fullResetWarp() {
-  if (!confirm('Full WARP reset?\n\nThis will disconnect, re-register, and reconnect WARP.')) return;
+  logAction('ACTION: Performing Full WARP Reset...', 'info');
   try {
     const resp = await fetch('/api/warp/full-reset', { method: 'POST' });
     const data = await resp.json();
-    if (data.ok) { alert('Full WARP reset complete!'); refreshStatus(); }
-    else { alert('Full WARP reset failed: ' + (data.error || 'unknown error')); }
-  } catch (e) { alert('Full WARP reset failed: ' + e.message); }
+    if (data.ok) { logAction('SUCCESS: Full WARP reset complete.', 'success'); refreshStatus(); }
+    else { logAction('ERROR: Full WARP reset failed: ' + (data.error || 'unknown error'), 'error'); }
+  } catch (e) { logAction('ERROR: Full WARP reset failed: ' + e.message, 'error'); }
 }
 
 async function stopWarp() {
-  if (!confirm('Disconnect WARP?')) return;
   try {
-    const resp = await fetch('/api/warp/stop', { method: 'POST' });
-    const data = await resp.json();
-    if (data.ok) { alert('WARP disconnected!'); refreshStatus(); }
-    else { alert('WARP stop failed: ' + (data.error || 'unknown error')); }
-  } catch (e) { alert('WARP stop failed: ' + e.message); }
+    await fetch('/api/warp/stop', { method: 'POST' });
+    refreshStatus();
+  } catch (e) { alert('Failed to stop WARP'); }
 }
 
 async function startTor() {
-  try {
-    const resp = await fetch('/api/tor/start', { method: 'POST' });
-    const data = await resp.json();
-    if (data.ok) { alert('Tor started!'); refreshStatus(); }
-    else { alert('Tor start failed: ' + (data.error || 'unknown error')); }
-  } catch (e) { alert('Tor start failed: ' + e.message); }
+  try { await fetch('/api/tor/start', { method: 'POST' }); refreshStatus(); } catch (e) {}
 }
 
 async function rotateTor() {
-  try {
-    const resp = await fetch('/api/tor/rotate', { method: 'POST' });
-    const data = await resp.json();
-    if (data.ok) { alert('Tor circuit rotated!'); refreshStatus(); }
-    else { alert('Tor rotate failed: ' + (data.error || 'unknown error')); }
-  } catch (e) { alert('Tor rotate failed: ' + e.message); }
+  try { await fetch('/api/tor/rotate', { method: 'POST' }); refreshStatus(); } catch (e) {}
 }
 
 async function stopTor() {
-  if (!confirm('Stop Tor?')) return;
+  try { await fetch('/api/tor/stop', { method: 'POST' }); refreshStatus(); } catch (e) {}
+}
+
+async function installOpencode() {
+  logAction('ACTION: Installing OpenCode...', 'info');
   try {
-    const resp = await fetch('/api/tor/stop', { method: 'POST' });
+    const resp = await fetch('/api/install/opencode', { method: 'POST' });
     const data = await resp.json();
-    if (data.ok) { alert('Tor stopped!'); refreshStatus(); }
-    else { alert('Tor stop failed: ' + (data.error || 'unknown error')); }
-  } catch (e) { alert('Tor stop failed: ' + e.message); }
+    if (data.ok) { logAction('SUCCESS: OpenCode installed.', 'success'); refreshStatus(); }
+    else { logAction('ERROR: Install failed: ' + (data.error || 'unknown error'), 'error'); }
+  } catch (e) { logAction('ERROR: Install failed: ' + e.message, 'error'); }
 }
 
-async function installOpencode() { logAction('ACTION: Installing OpenCode...', 'info'); try { await fetch('/api/install/opencode', { method: 'POST' }); logAction('SUCCESS: OpenCode installed.', 'success'); } catch (e) { logAction('ERROR: Install failed - ' + e.message, 'error'); } });
+async function installClaudeCode() {
+  logAction('ACTION: Installing Claude Code...', 'info');
+  try {
+    const resp = await fetch('/api/install/claude-code', { method: 'POST' });
     const data = await resp.json();
-    if (data.ok) { alert('OpenCode installed!'); runDoctor(); }
-    else { alert('Install failed: ' + (data.error || 'unknown error')); }
-  } catch (e) { alert('Install failed: ' + e.message); }
-}
-
-async function installClaudeCode() { logAction('ACTION: Installing Claude Code...', 'info'); try { await fetch('/api/install/claude-code', { method: 'POST' }); logAction('SUCCESS: Claude Code installed.', 'success'); } catch (e) { logAction('ERROR: Install failed - ' + e.message, 'error'); } });
-    const data = await resp.json();
-    if (data.ok) { alert('Claude Code installed!'); runDoctor(); }
-    else { alert('Install failed: ' + (data.error || 'unknown error')); }
-  } catch (e) { alert('Install failed: ' + e.message); }
+    if (data.ok) { logAction('SUCCESS: Claude Code installed.', 'success'); refreshStatus(); }
+    else { logAction('ERROR: Install failed: ' + (data.error || 'unknown error'), 'error'); }
+  } catch (e) { logAction('ERROR: Install failed: ' + e.message, 'error'); }
 }
 
 async function runDoctor() {
   try {
     const resp = await fetch('/api/doctor');
     const data = await resp.json();
-    if (data.checks) {
-      data.checks.forEach(check => {
-        const el = document.getElementById(`doc-${check.name.toLowerCase()}`);
-        if (el) {
-          el.className = check.ok ? 'badge badge-green' : 'badge badge-red';
-          el.textContent = check.ok ? 'OK' : 'Missing';
-        }
-      });
-    }
-  } catch (e) { console.error('Doctor failed:', e); }
+    
+    const setDoc = (id, result) => {
+      const el = document.getElementById(id);
+      el.textContent = result.ok ? 'OK' : 'FAIL';
+      el.className = result.ok ? 'badge badge-green' : 'badge badge-red';
+    };
+    
+    setDoc('doc-warp', data.warp);
+    setDoc('doc-claude', data.claude_code);
+    setDoc('doc-node', data.node);
+    setDoc('doc-port', data.port_8080);
+    
+  } catch (e) { alert('Doctor checks failed'); }
 }
 
 async function refreshSystemLogs() {
   try {
     const resp = await fetch('/api/system_logs');
     const data = await resp.json();
-    const el = document.getElementById('system-logs');
-    if (data.logs && data.logs.length > 0) {
-      el.textContent = data.logs.join('\n');
-    } else {
-      el.textContent = 'No system logs found (oplire.log may be empty).';
+    const logBody = document.getElementById('system-log-body');
+    if (!logBody) return;
+    if (data.length > 0) {
+      logBody.innerHTML = data.map(log => 
+        `<tr>
+          <td style="color: #666;">${new Date(log.timestamp).toLocaleTimeString()}</td>
+          <td style="color: ${log.level === 'ERROR' ? '#ff4444' : log.level === 'WARN' ? '#ffaa00' : '#888'}">${log.level}</td>
+          <td>${log.target}</td>
+          <td style="color: #e0e0e0;">${log.message}</td>
+        </tr>`
+      ).join('');
     }
-    el.scrollTop = el.scrollHeight;
-  } catch(e) {
-    document.getElementById('system-logs').textContent = 'Failed to load logs.';
-  }
+  } catch(e) {}
 }
-setInterval(refreshSystemLogs, 3000);
-refreshSystemLogs();
 
 async function refreshLogs() {
   try {
     const resp = await fetch('/api/logs');
     const data = await resp.json();
-    const body = document.getElementById('log-body');
-    if (data.logs && data.logs.length > 0) {
-      body.innerHTML = data.logs.map(log => `
-        <tr>
-          <td>${log.timestamp}</td><td>${log.method}</td><td>${log.path}</td>
-          <td><span class="badge ${log.status < 400 ? 'badge-green' : 'badge-red'}">${log.status}</span></td>
-          <td>${log.duration_ms}ms</td>
-          <td><span class="badge badge-gray">${log.tone}</span></td>
-        </tr>
-      `).join('');
+    const logBody = document.getElementById('log-body');
+    if (!logBody) return;
+    if (data.length > 0) {
+      logBody.innerHTML = data.map(log => 
+        `<tr>
+          <td style="color: #666;">${new Date(log.timestamp).toLocaleTimeString()}</td>
+          <td style="color: ${log.method === 'POST' ? '#00ff88' : '#4488ff'}">${log.method}</td>
+          <td>${log.path}</td>
+          <td><span class="badge ${log.status >= 400 ? 'badge-red' : 'badge-green'}">${log.status}</span></td>
+          <td style="color: #888">${log.duration_ms}ms</td>
+          <td>${log.tone || '-'}</td>
+        </tr>`
+      ).join('');
+    } else {
+      logBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #666; padding: 24px;">No requests logged yet</td></tr>';
     }
-  } catch (e) { console.error('Logs fetch failed:', e); }
+  } catch (e) {
+    console.error('Logs fetch failed:', e);
+  }
 }
 
 refreshStatus();
 refreshModels();
-runDoctor();
+refreshLogs();
+refreshSystemLogs();
 setInterval(refreshStatus, 5000);
+setInterval(refreshLogs, 5000);
+setInterval(refreshSystemLogs, 3000);
+
+setTimeout(async () => {
+  if (!hasCheckedSetup) {
+    const resp = await fetch('/api/status');
+    const data = await resp.json();
+    if (!data.warp.installed) {
+      openModal('modal-setup');
+    }
+    hasCheckedSetup = true;
+  }
+}, 1000);
+
 </script>
 </body>
 </html>
