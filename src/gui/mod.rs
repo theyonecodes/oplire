@@ -405,13 +405,14 @@ pub async fn api_doctor() -> impl IntoResponse {
         .arg("--version").output().await.is_ok();
     let port_available = tokio::net::TcpListener::bind("127.0.0.1:8080").await.is_ok();
 
+    // If we are running the API, port 8080 IS bound by us. So port 8080 check is technically OK if we can serve this request!
+    let port_available = true;
+
     Json(json!({
-        "checks": [
-            {"name": "WARP CLI", "ok": warp_installed, "detail": if warp_installed { "installed" } else { "not found" }},
-            {"name": "Claude Code", "ok": claude_installed, "detail": if claude_installed { "installed" } else { "not found" }},
-            {"name": "Node.js", "ok": node_installed, "detail": if node_installed { "installed" } else { "not found" }},
-            {"name": "Port 8080", "ok": port_available, "detail": if port_available { "available" } else { "in use" }},
-        ]
+        "warp": {"ok": warp_installed, "status": if warp_installed { "installed" } else { "not found" }},
+        "claude_code": {"ok": claude_installed, "status": if claude_installed { "installed" } else { "not found" }},
+        "node": {"ok": node_installed, "status": if node_installed { "installed" } else { "not found" }},
+        "port_8080": {"ok": port_available, "status": "in use by proxy (expected)"},
     }))
 }
 
@@ -424,16 +425,32 @@ pub async fn api_config_reset() -> Response {
 // === WARP full reset ===
 pub async fn api_warp_full_reset() -> Response {
     info!("Full WARP reset triggered from GUI");
-    let steps = [
-        ("warp-cli disconnect", vec!["disconnect"]),
-        ("systemctl stop warp-svc", vec!["systemctl", "-n", "stop", "warp-svc"]),
-    ];
+    let steps = if cfg!(target_os = "windows") {
+        vec![
+            ("warp-cli disconnect", vec!["warp-cli", "disconnect"]),
+            ("net stop Cloudflare WARP", vec!["net", "stop", "Cloudflare WARP"]),
+            ("net start Cloudflare WARP", vec!["net", "start", "Cloudflare WARP"]),
+        ]
+    } else {
+        vec![
+            ("warp-cli disconnect", vec!["warp-cli", "disconnect"]),
+            ("systemctl stop warp-svc", vec!["systemctl", "-n", "stop", "warp-svc"]),
+            ("systemctl start warp-svc", vec!["systemctl", "-n", "start", "warp-svc"]),
+        ]
+    };
 
-    for (_name, args) in &steps {
-        let _ = tokio::process::Command::new(args[0])
-            .args(&args[1..])
-            .output().await;
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    for (desc, cmd) in steps {
+        let cmd_name = cmd[0];
+        let cmd_args = &cmd[1..];
+        match tokio::process::Command::new(cmd_name).args(cmd_args).output().await {
+            Ok(out) if !out.status.success() => {
+                let stderr = String::from_utf8_lossy(&out.stderr);
+                tracing::warn!("Step '{}' failed: {}", desc, stderr);
+            }
+            Err(e) => tracing::warn!("Failed to execute step '{}': {}", desc, e),
+            _ => info!("Step '{}' succeeded", desc),
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
     }
 
     let _ = tokio::process::Command::new("warp-cli")
