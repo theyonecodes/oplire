@@ -751,6 +751,24 @@ async function runDoctor() {
   } catch (e) { console.error('Doctor failed:', e); }
 }
 
+async function refreshSystemLogs() {
+  try {
+    const resp = await fetch('/api/system_logs');
+    const data = await resp.json();
+    const el = document.getElementById('system-logs');
+    if (data.logs && data.logs.length > 0) {
+      el.textContent = data.logs.join('\n');
+    } else {
+      el.textContent = 'No system logs found (oplire.log may be empty).';
+    }
+    el.scrollTop = el.scrollHeight;
+  } catch(e) {
+    document.getElementById('system-logs').textContent = 'Failed to load logs.';
+  }
+}
+setInterval(refreshSystemLogs, 3000);
+refreshSystemLogs();
+
 async function refreshLogs() {
   try {
     const resp = await fetch('/api/logs');
@@ -776,4 +794,6 @@ setInterval(refreshStatus, 5000);
 </script>
 </body>
 </html>
+
+
 

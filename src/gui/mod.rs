@@ -616,3 +616,12 @@ pub async fn api_advanced_config_post(
     
     Json(json!({ "ok": true }))
 }
+
+pub async fn api_system_logs() -> impl IntoResponse {
+    let mut logs = Vec::new();
+    if let Ok(content) = std::fs::read_to_string("oplire.log") {
+        logs = content.lines().rev().take(100).map(|s| s.to_string()).collect();
+        logs.reverse();
+    }
+    Json(json!({ "logs": logs }))
+}

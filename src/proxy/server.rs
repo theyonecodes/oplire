@@ -90,3 +90,4 @@ pub async fn start_proxy_server(config: ProxyConfig) -> anyhow::Result<()> {
 
     Ok(())
 }
+

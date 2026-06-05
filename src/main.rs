@@ -453,6 +453,17 @@ fn print_info_formatted(label: &str, desc: &str) {
 }
 
 fn main() {
+    // Initialize tracing to oplire.log
+    if let Ok(log_file) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("oplire.log")
+    {
+        let _ = tracing_subscriber::fmt()
+            .with_writer(std::sync::Arc::new(log_file))
+            .try_init();
+    }
+
     let cli = Cli::parse();
 
     if cli.verbose {
