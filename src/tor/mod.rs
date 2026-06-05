@@ -49,7 +49,7 @@ pub async fn check_tor_running() -> bool {
 }
 
 pub async fn get_tor_exit_ip() -> Option<String> {
-    let proxy = reqwest::Proxy::all(&format!("socks5h://127.0.0.1:{}", DEFAULT_SOCKS_PORT)).ok()?;
+    let proxy = reqwest::Proxy::all(format!("socks5h://127.0.0.1:{}", DEFAULT_SOCKS_PORT)).ok()?;
     let client = reqwest::Client::builder()
         .proxy(proxy)
         .timeout(Duration::from_secs(10))
@@ -208,6 +208,6 @@ pub async fn stop_tor() -> Result<String, String> {
 }
 
 pub fn create_tor_proxy(port: u16) -> Result<reqwest::Proxy, String> {
-    reqwest::Proxy::all(&format!("socks5h://127.0.0.1:{}", port))
+    reqwest::Proxy::all(format!("socks5h://127.0.0.1:{}", port))
         .map_err(|e| format!("Failed to create Tor proxy: {}", e))
 }

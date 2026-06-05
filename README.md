@@ -100,7 +100,7 @@ Before using oplire, make sure you have:
 
 **No build tools. No Rust. No pain.**
 
-1. Download `oplire-v2.6.1.exe` from [Releases](https://github.com/theyonecodes/oplire/releases/download/v2.6.1/oplire-v2.6.1.exe)
+1. Download `oplire-v2.6.2.exe` from [Releases](https://github.com/theyonecodes/oplire/releases/download/v2.6.2/oplire-v2.6.2.exe)
 2. Put it somewhere in your PATH (e.g. `C:\Users\You\.cargo\bin\`)
 3. Open PowerShell and run:
 
@@ -447,8 +447,8 @@ MAJOR.MINOR.PATCH
 | Increment | When | Example |
 |-----------|------|---------|
 | **MAJOR** | Breaking changes (CLI args, config format, API) | 1.0.0 → 2.0.0 |
-| **MINOR** | New features, backwards compatible | 2.5.0 → 2.6.1 |
-| **PATCH** | Bug fixes, small improvements | 2.6.1 → 2.6.1 |
+| **MINOR** | New features, backwards compatible | 2.5.0 → 2.6.2 |
+| **PATCH** | Bug fixes, small improvements | 2.6.2 → 2.6.2 |
 
 ### Release Process
 
