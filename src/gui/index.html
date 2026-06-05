@@ -275,21 +275,6 @@
       <h2>System Terminal</h2>
       <div id="terminal" style="height: 400px; width: 100%;"></div>
     </div>
-        <div class="card" style="margin-bottom: 20px;">
-      <h2>Automation</h2>
-      <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
-        <span style="font-size: 13px; color: #e0e0e0;">Auto-Resolve Rate Limits (Watch Mode)</span>
-        <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
-          <input type="checkbox" id="watch-mode-toggle" onchange="toggleWatchMode(this.checked)" style="opacity: 0; width: 0; height: 0;">
-          <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px;"></span>
-        </label>
-      </div>
-      <style>
-        input:checked + .slider { background-color: #00ff88; }
-        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider:before { transform: translateX(14px); }
-      </style>
-    </div>
     <div class="card" style="margin-bottom: 20px;">
       <div class="section-header">
         <h2>Request Log</h2>
@@ -791,3 +776,4 @@ setInterval(refreshStatus, 5000);
 </script>
 </body>
 </html>
+

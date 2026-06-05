@@ -471,7 +471,9 @@ async fn install_package(name: &str) -> Response {
         _ => name,
     };
 
-    match tokio::process::Command::new("npm")
+    let npm_cmd = if cfg!(target_os = "windows") { "npm.cmd" } else { "npm" };
+
+    match tokio::process::Command::new(npm_cmd)
         .args(["install", "-g", pkg])
         .output().await
     {
