@@ -124,6 +124,47 @@ pub async fn api_launch(
     let model = body.get("model").and_then(|v| v.as_str()).unwrap_or("glm-4.7-free");
     let effort = body.get("effort").and_then(|v| v.as_str());
 
+    let valid_models = [
+        "glm-4.7-free",
+        "minimax-m2.1-free",
+        "kimi-k2.5-free",
+        "qwen-2.5-72b-free",
+        "llama-3.3-70b-free",
+    ];
+    let valid_efforts = ["low", "medium", "high", "xhigh", "max"];
+
+    if !valid_models.contains(&model) {
+        return (StatusCode::BAD_REQUEST, Json(json!({
+            "ok": false,
+            "error": format!("Invalid model: {}", model),
+            "hint": format!("Valid models: {}", valid_models.join(", "))
+        }))).into_response();
+    }
+
+    if let Some(e) = effort {
+        if !valid_efforts.contains(&e) {
+            return (StatusCode::BAD_REQUEST, Json(json!({
+                "ok": false,
+                "error": format!("Invalid effort level: {}", e),
+                "hint": format!("Valid effort levels: {}", valid_efforts.join(", "))
+            }))).into_response();
+        }
+    }
+
+    let claude_check = tokio::process::Command::new("claude")
+        .arg("--version")
+        .output()
+        .await;
+    if claude_check.is_err() {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
+            "ok": false,
+            "error": "Claude Code not found in PATH",
+            "hint": "Install Claude Code by running: npm install -g @anthropic-ai/claude-code",
+            "install_command": "npm install -g @anthropic-ai/claude-code",
+            "gui_install_available": true
+        }))).into_response();
+    }
+
     info!("Launching Claude Code from GUI: model={}, effort={:?}", model, effort);
 
     let mut cmd = tokio::process::Command::new("claude");
@@ -149,10 +190,23 @@ pub async fn api_launch(
             }))).into_response()
         }
         Err(e) => {
+            let error_msg = e.to_string();
+            let is_not_found = error_msg.contains("not found") || error_msg.contains("No such file");
+
             (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
                 "ok": false,
-                "error": format!("Failed to launch Claude Code: {}", e),
-                "hint": "Make sure Claude Code is installed: npm install -g @anthropic-ai/claude-code"
+                "error": if is_not_found {
+                    "Claude Code executable not found".to_string()
+                } else {
+                    format!("Failed to launch Claude Code: {}", error_msg)
+                },
+                "hint": if is_not_found {
+                    "Install Claude Code: npm install -g @anthropic-ai/claude-code".to_string()
+                } else {
+                    format!("Launch error: {}", error_msg)
+                },
+                "install_command": "npm install -g @anthropic-ai/claude-code",
+                "gui_install_available": true
             }))).into_response()
         }
     }

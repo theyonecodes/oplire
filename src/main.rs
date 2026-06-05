@@ -849,6 +849,25 @@ fn main() {
                 std::process::exit(1);
             }
 
+            let valid_models = [
+                "glm-4.7-free",
+                "minimax-m2.1-free",
+                "kimi-k2.5-free",
+                "qwen-2.5-72b-free",
+                "llama-3.3-70b-free",
+            ];
+
+            if let Some(ref m) = model {
+                if !valid_models.contains(&m.as_str()) {
+                    eprintln!("{} Invalid model: {}", "[ERROR]".red(), m);
+                    eprintln!("{} Valid models:", "→".cyan());
+                    for vm in &valid_models {
+                        eprintln!("  {}", vm);
+                    }
+                    std::process::exit(1);
+                }
+            }
+
             let selected_model = match model {
                 Some(m) => m.clone(),
                 None => {
@@ -960,6 +979,34 @@ fn main() {
                 eprintln!("{} Claude Code not found in PATH", "[ERROR]".red());
                 eprintln!("{} Install: {}", "Fix:".cyan(), "npm install -g @anthropic-ai/claude-code".bold().yellow());
                 std::process::exit(1);
+            }
+
+            let valid_models = [
+                "glm-4.7-free",
+                "minimax-m2.1-free",
+                "kimi-k2.5-free",
+                "qwen-2.5-72b-free",
+                "llama-3.3-70b-free",
+            ];
+            let valid_efforts = ["low", "medium", "high", "xhigh", "max"];
+
+            if let Some(ref m) = model {
+                if !valid_models.contains(&m.as_str()) {
+                    eprintln!("{} Invalid model: {}", "[ERROR]".red(), m);
+                    eprintln!("{} Valid models:", "→".cyan());
+                    for vm in &valid_models {
+                        eprintln!("  {}", vm);
+                    }
+                    std::process::exit(1);
+                }
+            }
+
+            if let Some(ref e) = effort {
+                if !valid_efforts.contains(&e.as_str()) {
+                    eprintln!("{} Invalid effort level: {}", "[ERROR]".red(), e);
+                    eprintln!("{} Valid effort levels: low, medium, high, xhigh, max", "→".cyan());
+                    std::process::exit(1);
+                }
             }
 
             let selected_model = match model {

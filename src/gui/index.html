@@ -482,13 +482,40 @@ async function launchClaude() {
       btn.textContent = 'Failed';
       btn.style.background = '#ff4444';
       setTimeout(() => { btn.textContent = origText; btn.style.background = ''; btn.disabled = false; }, 2000);
-      alert(data.error + '\n\n' + (data.hint || ''));
+
+      let msg = data.error || 'Unknown error';
+      if (data.hint) msg += '\n\n' + data.hint;
+
+      if (data.gui_install_available && data.install_command) {
+        if (confirm(msg + '\n\nWould you like to install it now?')) {
+          installPackage(data.install_command);
+        }
+      } else {
+        alert(msg);
+      }
     }
   } catch (e) {
     btn.textContent = 'Error';
     btn.style.background = '#ff4444';
     setTimeout(() => { btn.textContent = origText; btn.style.background = ''; btn.disabled = false; }, 2000);
     alert('Launch failed: ' + e.message);
+  }
+}
+
+async function installPackage(cmd) {
+  const pkg = cmd.replace('npm install -g ', '').trim();
+  const endpoint = pkg.includes('claude') ? 'claude-code' : 'opencode';
+  try {
+    const resp = await fetch('/api/install/' + endpoint, { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      alert('Installed successfully! You can now launch Claude Code.');
+      runDoctor();
+    } else {
+      alert('Install failed: ' + (data.error || 'unknown error'));
+    }
+  } catch (e) {
+    alert('Install failed: ' + e.message);
   }
 }
 

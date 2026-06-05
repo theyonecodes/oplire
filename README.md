@@ -78,6 +78,22 @@ You don't need to understand any of this — just run `oplire start` and it work
 
 ---
 
+## Prerequisites
+
+Before using oplire, make sure you have:
+
+| Required | What | Why | Install |
+|----------|------|-----|---------|
+| ✅ **Claude Code** | AI coding assistant CLI | The tool that connects to oplire | `npm install -g @anthropic-ai/claude-code` |
+| ✅ **Node.js** | JavaScript runtime | Required for Claude Code | https://nodejs.org/ |
+| ⚠️ **Cloudflare WARP** | VPN client | For IP rotation (optional but recommended) | https://1.1.1.1/ |
+| ⚠️ **Tor** | Anonymity network | For Tor routing (optional) | https://www.torproject.org/ |
+| ⚠️ **OpenCode** | AI coding tool | For OpenCode Zen models (optional) | `oplire install opencode` |
+
+**Quick check:** Run `oplire doctor` to verify everything is installed.
+
+---
+
 ## Install (Windows)
 
 ### Option 1: Download the .exe (Recommended)
@@ -179,15 +195,62 @@ The control panel includes:
 
 ## Available Free Models
 
-| Model | Provider | Specialty | Speed |
-|-------|----------|-----------|-------|
-| GLM 4.7 Free | Zhipu AI | Reasoning & Code | Fast |
-| MiniMax M2.1 Free | MiniMax | Creative & Chat | Fast |
-| Kimi K2.5 Free | Moonshot AI | Long Context & Analysis | Medium |
-| Qwen 2.5 72B Free | Alibaba Cloud | General Purpose | Medium |
-| Llama 3.3 70B Free | Meta | Balanced Performance | Fast |
+These are the model IDs you can use with the `--model` flag:
+
+| Model ID | Display Name | Provider | Specialty | Speed |
+|----------|--------------|----------|-----------|-------|
+| `glm-4.7-free` | GLM 4.7 Free | Zhipu AI | Reasoning & Code | Fast |
+| `minimax-m2.1-free` | MiniMax M2.1 Free | MiniMax | Creative & Chat | Fast |
+| `kimi-k2.5-free` | Kimi K2.5 Free | Moonshot AI | Long Context & Analysis | Medium |
+| `qwen-2.5-72b-free` | Qwen 2.5 72B Free | Alibaba Cloud | General Purpose | Medium |
+| `llama-3.3-70b-free` | Llama 3.3 70B Free | Meta | Balanced Performance | Fast |
+
+**Default model:** `glm-4.7-free` (used when you don't specify `--model`)
+
+**Usage examples:**
+
+```powershell
+# Use a specific model
+oplire start --model minimax-m2.1-free
+
+# Use a different model
+oplire start --model llama-3.3-70b-free
+
+# Use the default (glm-4.7-free)
+oplire start
+```
 
 All models are **free** with **128K context windows**.
+
+### Effort Level
+
+The `--effort` flag controls how much reasoning the model does:
+
+| Level | When to use | Speed |
+|-------|-------------|-------|
+| `low` | Quick questions, simple tasks | Fastest |
+| `medium` | General coding, explanations | Fast |
+| `high` | **Default** — Most coding tasks | Medium |
+| `xhigh` | Complex problems, debugging | Slow |
+| `max` | Hardest problems, best quality | Slowest |
+
+**Usage examples:**
+
+```powershell
+# Quick question
+oplire start --effort low
+
+# Default (high)
+oplire start
+
+# Complex debugging
+oplire start --effort xhigh
+
+# Best quality
+oplire start --effort max
+```
+
+**In Claude Code:** Type `/model` to switch models on the fly, or `/effort` to change effort level mid-session.
 
 ---
 
@@ -327,22 +390,24 @@ The proxy exposes a REST API for the web control panel:
 
 ## Architecture
 
-```
-┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
-│ Claude Code │────▶│  oplire      │────▶│  OpenCode Zen   │
-│             │◀────│  Proxy       │◀────│  (free models)  │
-└─────────────┘     └──────────────┘     └─────────────────┘
-                          │
-                    ┌─────┴─────┐
-                    │  WARP /   │
-                    │  Tor      │
-                    └───────────┘
-```
+oplire sits between Claude Code and OpenCode Zen, translating requests between Anthropic and OpenCode formats. WARP or Tor provides IP rotation when rate limits are hit.
 
 - **Claude Code** connects to oplire as if it were Anthropic's API
 - **oplire** translates requests to OpenCode Zen's format
 - **WARP/Tor** provides IP rotation when rate limits hit
 - **Web GUI** controls everything from the browser
+
+### Request Flow
+
+1. You type a message in Claude Code
+2. Claude Code sends it to `http://127.0.0.1:8080` (oplire proxy)
+3. oplire translates the request to OpenCode Zen format
+4. Request is routed through WARP or Tor (if enabled)
+5. OpenCode Zen processes it with the selected free model
+6. Response flows back through oplire to Claude Code
+7. You see the response in Claude Code
+
+**You don't need to understand this** — just run `oplire start` and it works!
 
 ---
 
