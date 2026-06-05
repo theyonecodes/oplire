@@ -269,6 +269,33 @@
   </div>
 
   <div class="main">
+
+    <!-- HERO SECTION -->
+    <div class="card" style="margin-bottom: 20px; text-align: center; padding: 40px 20px; background: linear-gradient(145deg, #111, #1a1a1a); border: 1px solid #00ff8844; box-shadow: 0 8px 32px rgba(0,255,136,0.1);">
+      <h2 style="font-size: 24px; color: #00ff88; margin-bottom: 8px;">Rate Limit Resetter</h2>
+      <p style="color: #888; font-size: 14px; margin-bottom: 24px;">Bypass AI rate limits securely by rotating your IP address.</p>
+      
+      <div style="display: flex; justify-content: center; gap: 16px; margin-bottom: 24px;">
+        <button class="btn btn-green" style="max-width: 250px; font-size: 16px; padding: 16px;" onclick="resetWarp()">Bypass Rate Limit (Reset IP)</button>
+      </div>
+
+      <div style="display: inline-flex; align-items: center; background: #0a0a0a; padding: 12px 24px; border-radius: 8px; border: 1px solid #333;">
+        <span style="font-size: 14px; color: #e0e0e0; margin-right: 16px;">Auto-Resolve Rate Limits (Watch Mode)</span>
+        <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px; margin: 0;">
+          <input type="checkbox" id="hero-watch-mode" onchange="toggleWatchMode(this.checked)" style="opacity: 0; width: 0; height: 0;">
+          <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px;"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ACTION LOGS -->
+    <div class="card" style="margin-bottom: 20px;">
+      <h2>Activity Log</h2>
+      <div id="action-log-content" style="height: 150px; overflow-y: auto; background: #0a0a0a; border: 1px solid #222; border-radius: 6px; padding: 12px; font-size: 12px; font-family: 'SF Mono', monospace;">
+        <div style="color: #888;">[System] Ready to bypass rate limits.</div>
+      </div>
+    </div>
+
         <div class="card nerd-only" style="margin-bottom: 20px;"><h2>Automation</h2>
       <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
         <span style="font-size: 13px; color: #e0e0e0;">Auto-Resolve Rate Limits (Watch Mode)</span>
@@ -347,6 +374,16 @@
   </div>
 </div>
 <script>
+
+function logAction(msg, type = 'info') {
+  const logDiv = document.getElementById('action-log-content');
+  if (!logDiv) return;
+  const time = new Date().toLocaleTimeString();
+  const color = type === 'error' ? '#ff4444' : type === 'success' ? '#00ff88' : '#e0e0e0';
+  logDiv.innerHTML += `<div style="color: ${color}; margin-bottom: 4px;">[${time}] ${msg}</div>`;
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
 function toggleGlobalMode(isNerd) {
   const body = document.body;
   const normalLabel = document.getElementById('mode-normal-label');
@@ -421,12 +458,7 @@ async function runSetupWizard() {
 }
 
 
-async function toggleWatchMode(enabled) {
-  try {
-    const retries = enabled ? 3 : 0;
-    await fetch('/api/config/advanced', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+async function toggleWatchMode(enabled) { const state = enabled ? 'Enabled' : 'Disabled'; logAction(`ACTION: Watch Mode ${state}`, 'info'); try { const retries = enabled ? 3 : 0; await fetch('/api/config/advanced', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ max_retries: retries }) }); logAction(`SUCCESS: Automation ${state}.`, 'success'); } catch (e) { logAction('ERROR: Failed to toggle Watch Mode - ' + e.message, 'error'); } },
       body: JSON.stringify({ max_retries: retries })
     });
   } catch (e) { alert('Failed to toggle Watch Mode: ' + e.message); }
@@ -437,6 +469,7 @@ async function initWatchModeToggle() {
     const resp = await fetch('/api/config/advanced');
     const data = await resp.json();
     document.getElementById('watch-mode-toggle').checked = data.max_retries > 0;
+    if(document.getElementById('hero-watch-mode')) document.getElementById('hero-watch-mode').checked = data.max_retries > 0;
   } catch(e) {}
 }
 setInterval(initWatchModeToggle, 5000);
@@ -634,16 +667,7 @@ function setTone(tone) {
   });
 }
 
-async function launchClaude() {
-  const btn = document.querySelector('.btn-green');
-  const origText = btn.textContent;
-  btn.textContent = 'Launching...';
-  btn.disabled = true;
-
-  try {
-    const resp = await fetch('/api/launch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+async function launchClaude() { logAction('ACTION: Launching Claude Code...', 'info'); try { await fetch('/api/launch', { method: 'POST' }); logAction('SUCCESS: Launched successfully.', 'success'); } catch (e) { logAction('ERROR: Launch failed - ' + e.message, 'error'); } },
       body: JSON.stringify({ model: currentModel, effort: currentEffort })
     });
     const data = await resp.json();
@@ -692,10 +716,7 @@ async function installPackage(cmd) {
   }
 }
 
-async function resetWarp() {
-  if (!confirm('Reset WARP IP address?\n\nThis will disconnect and reconnect WARP.')) return;
-  try {
-    const resp = await fetch('/api/warp/reset', { method: 'POST' });
+async function resetWarp() { logAction('ACTION: Resetting WARP IP to bypass limits...', 'info'); try { await fetch('/api/warp/reset', { method: 'POST' }); logAction('SUCCESS: IP successfully rotated.', 'success'); } catch (e) { logAction('ERROR: Failed to reset WARP IP - ' + e.message, 'error'); } });
     const data = await resp.json();
     if (data.ok) { alert('WARP reset complete!'); refreshStatus(); }
     else { alert('WARP reset failed: ' + (data.error || 'unknown error')); }
@@ -750,20 +771,14 @@ async function stopTor() {
   } catch (e) { alert('Tor stop failed: ' + e.message); }
 }
 
-async function installOpencode() {
-  if (!confirm('Install OpenCode via npm?')) return;
-  try {
-    const resp = await fetch('/api/install/opencode', { method: 'POST' });
+async function installOpencode() { logAction('ACTION: Installing OpenCode...', 'info'); try { await fetch('/api/install/opencode', { method: 'POST' }); logAction('SUCCESS: OpenCode installed.', 'success'); } catch (e) { logAction('ERROR: Install failed - ' + e.message, 'error'); } });
     const data = await resp.json();
     if (data.ok) { alert('OpenCode installed!'); runDoctor(); }
     else { alert('Install failed: ' + (data.error || 'unknown error')); }
   } catch (e) { alert('Install failed: ' + e.message); }
 }
 
-async function installClaudeCode() {
-  if (!confirm('Install Claude Code via npm?')) return;
-  try {
-    const resp = await fetch('/api/install/claude-code', { method: 'POST' });
+async function installClaudeCode() { logAction('ACTION: Installing Claude Code...', 'info'); try { await fetch('/api/install/claude-code', { method: 'POST' }); logAction('SUCCESS: Claude Code installed.', 'success'); } catch (e) { logAction('ERROR: Install failed - ' + e.message, 'error'); } });
     const data = await resp.json();
     if (data.ok) { alert('Claude Code installed!'); runDoctor(); }
     else { alert('Install failed: ' + (data.error || 'unknown error')); }

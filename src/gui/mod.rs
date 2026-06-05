@@ -249,12 +249,12 @@ pub async fn api_warp_reset() -> Response {
 }
 
 async fn check_warp_status() -> Value {
-    match tokio::process::Command::new("warp-cli")
+    let output_future = tokio::process::Command::new("warp-cli")
         .arg("status")
-        .output()
-        .await
-    {
-        Ok(output) => {
+        .output();
+        
+    match tokio::time::timeout(std::time::Duration::from_secs(3), output_future).await {
+        Ok(Ok(output)) => {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let connected = stdout.contains("Connected") || stdout.contains("connected");
             json!({
@@ -263,10 +263,10 @@ async fn check_warp_status() -> Value {
                 "raw": stdout.trim(),
             })
         }
-        Err(_) => json!({
+        Ok(Err(_)) | Err(_) => json!({
             "installed": false,
             "connected": false,
-            "raw": "warp-cli not found",
+            "raw": "warp-cli not found or timed out",
         }),
     }
 }
