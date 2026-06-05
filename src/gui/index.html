@@ -14,6 +14,14 @@
   h1 span { color: #666; font-weight: 400; }
   h2 { font-size: 13px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
   .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px; }
+  
+  /* Dual Mode CSS */
+  body:not(.nerd-mode) .nerd-only { display: none !important; }
+  body.nerd-mode .normal-only { display: none !important; }
+
+  .mode-switch-wrapper { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .mode-label { font-size: 13px; font-weight: 600; color: #888; transition: color 0.3s; }
+  .mode-label.active { color: #00ff88; }
   .status-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #222; }
   .status-row:last-child { border-bottom: none; }
   .status-label { color: #888; font-size: 13px; }
@@ -144,9 +152,19 @@
 <body>
 <div class="container">
   <div class="sidebar">
-    <div>
-            <h1>oplire <span>v2.6.3</span> <a class="gear-icon" onclick="openAdvancedSettings()" title="Advanced Settings">⚙</a></h1>
-      <p style="color: #666; font-size: 12px; margin-top: 4px;">Free models via Claude Code</p>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <h1>oplire <span>v2.6.3</span> <a class="gear-icon nerd-only" onclick="openAdvancedSettings()" title="Advanced Settings">⚙</a></h1>
+        <p style="color: #666; font-size: 12px; margin-top: 4px;">Free models via Claude Code</p>
+      </div>
+      <div class="mode-switch-wrapper">
+        <span id="mode-normal-label" class="mode-label active">Normal</span>
+        <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
+          <input type="checkbox" id="global-mode-toggle" onchange="toggleGlobalMode(this.checked)" style="opacity: 0; width: 0; height: 0;">
+          <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 20px;"></span>
+        </label>
+        <span id="mode-nerd-label" class="mode-label">Nerd</span>
+      </div>
     </div>
 
     <div class="card">
@@ -158,8 +176,7 @@
         <span class="status-label">WARP</span>
         <span id="warp-status" class="badge badge-gray">checking...</span>
       </div>
-      <div class="status-row">
-        <span class="status-label">Tor</span>
+      <div class="status-row nerd-only">`n        <span class="status-label">Tor</span>
         <span id="tor-status" class="badge badge-gray">checking...</span>
       </div>
       <div class="status-row">
@@ -172,8 +189,7 @@
       </div>
     </div>
 
-    <div class="card">
-      <h2>Routing</h2>
+    <div class="card nerd-only"><h2>Routing</h2>
       <div class="tabs">
         <button class="tab active" onclick="switchTab('warp')">WARP</button>
         <button class="tab" onclick="switchTab('tor')">Tor</button>
@@ -211,8 +227,7 @@
       </select>
     </div>
 
-    <div class="card">
-      <h2>Effort Level</h2>
+    <div class="card nerd-only"><h2>Effort Level</h2>
       <div class="effort-group">
         <button class="effort-btn" data-level="low" onclick="setEffort('low')">Low</button>
         <button class="effort-btn" data-level="medium" onclick="setEffort('medium')">Med</button>
@@ -222,8 +237,7 @@
       </div>
     </div>
 
-    <div class="card">
-      <h2>Tone</h2>
+    <div class="card nerd-only"><h2>Tone</h2>
       <div class="tone-group">
         <button class="tone-btn" data-tone="professional" onclick="setTone('professional')">Pro</button>
         <button class="tone-btn active" data-tone="witty" onclick="setTone('witty')">Witty</button>
@@ -239,8 +253,7 @@
       </div>
     </div>
 
-    <div class="card">
-      <h2>Diagnostics</h2>
+    <div class="card nerd-only"><h2>Diagnostics</h2>
       <div id="doctor-grid" class="doctor-grid">
         <div class="doctor-item"><span class="doctor-name">WARP</span><span id="doc-warp" class="badge badge-gray">-</span></div>
         <div class="doctor-item"><span class="doctor-name">Claude</span><span id="doc-claude" class="badge badge-gray">-</span></div>
@@ -256,8 +269,7 @@
   </div>
 
   <div class="main">
-        <div class="card" style="margin-bottom: 20px;">
-      <h2>Automation</h2>
+        <div class="card nerd-only" style="margin-bottom: 20px;"><h2>Automation</h2>
       <div class="form-group" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
         <span style="font-size: 13px; color: #e0e0e0;">Auto-Resolve Rate Limits (Watch Mode)</span>
         <label class="switch" style="position: relative; display: inline-block; width: 34px; height: 20px;">
@@ -271,13 +283,10 @@
         input:checked + .slider:before { transform: translateX(14px); }
       </style>
     </div>
-    <div class="card" style="margin-bottom: 20px;">
-      <h2>System Terminal</h2>
+    <div class="card nerd-only" style="margin-bottom: 20px;"><h2>System Terminal</h2>
       <div id="terminal" style="height: 400px; width: 100%;"></div>
     </div>
-    <div class="card" style="margin-bottom: 20px;">
-      <div class="section-header">
-        <h2>Request Log</h2>
+    <div class="card nerd-only" style="margin-bottom: 20px;"><div class="section-header"><h2>Request Log</h2>
         <button class="refresh-btn" onclick="refreshLogs()">&#8635;</button>
       </div>
       <table class="log-table">
@@ -338,6 +347,32 @@
   </div>
 </div>
 <script>
+function toggleGlobalMode(isNerd) {
+  const body = document.body;
+  const normalLabel = document.getElementById('mode-normal-label');
+  const nerdLabel = document.getElementById('mode-nerd-label');
+  
+  if (isNerd) {
+    body.classList.add('nerd-mode');
+    normalLabel.classList.remove('active');
+    nerdLabel.classList.add('active');
+    localStorage.setItem('oplire_mode', 'nerd');
+  } else {
+    body.classList.remove('nerd-mode');
+    normalLabel.classList.add('active');
+    nerdLabel.classList.remove('active');
+    localStorage.setItem('oplire_mode', 'normal');
+  }
+}
+
+// Initialize mode
+document.addEventListener('DOMContentLoaded', () => {
+  const savedMode = localStorage.getItem('oplire_mode') || 'normal';
+  const isNerd = savedMode === 'nerd';
+  document.getElementById('global-mode-toggle').checked = isNerd;
+  toggleGlobalMode(isNerd);
+});
+
 const term = new Terminal({
     theme: { background: '#0a0a0a', foreground: '#e0e0e0', cursor: '#00ff88' },
     fontFamily: "'SF Mono', 'Cascadia Code', 'Fira Code', monospace",
@@ -794,6 +829,9 @@ setInterval(refreshStatus, 5000);
 </script>
 </body>
 </html>
+
+
+
 
 
 
