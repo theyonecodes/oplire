@@ -1,6 +1,6 @@
 [package]
 name = "oplire-reset"
-version = "2.6.2"
+version = "2.6.3"
 edition = "2021"
 description = "OpenCode Limit Reset + Anthropic Proxy Bridge"
 authors = ["Berke Oruc"]

@@ -130,7 +130,7 @@
 <div class="container">
   <div class="sidebar">
     <div>
-      <h1>oplire <span>v2.5.0</span></h1>
+      <h1>oplire <span>v2.6.3</span></h1>
       <p style="color: #666; font-size: 12px; margin-top: 4px;">Free models via Claude Code</p>
     </div>
 
@@ -248,10 +248,10 @@
       </div>
       <table class="log-table">
         <thead>
-          <tr><th>Time</th><th>Method</th><th>Path</th><th>Status</th><th>Latency</th></tr>
+          <tr><th>Time</th><th>Method</th><th>Path</th><th>Status</th><th>Latency</th><th>Tone</th></tr>
         </thead>
         <tbody id="log-body">
-          <tr><td colspan="5" style="text-align: center; color: #666; padding: 24px;">No requests logged yet</td></tr>
+          <tr><td colspan="6" style="text-align: center; color: #666; padding: 24px;">No requests logged yet</td></tr>
         </tbody>
       </table>
     </div>
@@ -624,6 +624,7 @@ async function refreshLogs() {
           <td>${log.timestamp}</td><td>${log.method}</td><td>${log.path}</td>
           <td><span class="badge ${log.status < 400 ? 'badge-green' : 'badge-red'}">${log.status}</span></td>
           <td>${log.duration_ms}ms</td>
+          <td><span class="badge badge-gray">${log.tone}</span></td>
         </tr>
       `).join('');
     }
