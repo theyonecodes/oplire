@@ -8,9 +8,13 @@
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;600&display=swap');
 
   :root {
-    --bg-base: #050505;
-    --bg-card: rgba(255, 255, 255, 0.03);
-    --bg-card-hover: rgba(255, 255, 255, 0.05);
+    --bg-base: #09090b;
+    --bg-card: rgba(25, 25, 28, 0.6);
+    --bg-card-hover: rgba(35, 35, 40, 0.7);
+    --shadow-elevation-1: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    --shadow-elevation-2: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+    --shadow-elevation-3: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+    --inset-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.15);
     --border-dim: rgba(255, 255, 255, 0.08);
     --border-hover: rgba(255, 255, 255, 0.15);
     
@@ -53,9 +57,9 @@
     border: 1px solid var(--border-dim); 
     border-radius: 12px; 
     padding: 20px; 
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-elevation-2), var(--inset-highlight);
   }
   
   /* Dual Mode CSS */
@@ -108,6 +112,7 @@
     display: inline-flex;
     justify-content: center;
     align-items: center;
+    box-shadow: var(--shadow-elevation-1), var(--inset-highlight);
   }
   .btn:active { transform: scale(0.98); }
   .btn:focus-visible { outline: 2px solid var(--neon-green); outline-offset: 2px; }
@@ -227,7 +232,7 @@
 
   .model-card:hover {
     transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-elevation-3), var(--inset-highlight);
     border-color: transparent;
   }
   
@@ -235,14 +240,18 @@
   
   .model-card.active {
     border-color: transparent;
-    box-shadow: 0 0 30px rgba(0, 255, 136, 0.15);
+    background: rgba(10, 25, 15, 0.8);
+    box-shadow: var(--shadow-elevation-2), 0 0 25px rgba(0, 255, 136, 0.2), var(--inset-highlight);
   }
   .model-card.active::before { 
     opacity: 1; 
-    background: conic-gradient(from var(--angle), transparent 20%, var(--neon-green), #00ff88);
-    animation: rotate 2.5s linear infinite;
+    background: conic-gradient(from var(--angle), transparent 50%, var(--neon-green));
+    animation: rotate 3s linear infinite;
   }
-  .model-card.active::after { background: rgba(0, 255, 136, 0.05); }
+  .model-card.active::after { 
+    background: rgba(10, 20, 15, 0.85); 
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+  }
 
   .model-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; z-index: 2; position: relative; }
   .model-card-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
@@ -456,9 +465,13 @@
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;600&display=swap');
 
   :root {
-    --bg-base: #050505;
-    --bg-card: rgba(255, 255, 255, 0.03);
-    --bg-card-hover: rgba(255, 255, 255, 0.05);
+    --bg-base: #09090b;
+    --bg-card: rgba(25, 25, 28, 0.6);
+    --bg-card-hover: rgba(35, 35, 40, 0.7);
+    --shadow-elevation-1: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+    --shadow-elevation-2: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+    --shadow-elevation-3: 0 20px 25px -5px rgba(0, 0, 0, 0.8), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+    --inset-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.15);
     --border-dim: rgba(255, 255, 255, 0.08);
     --border-hover: rgba(255, 255, 255, 0.15);
     
@@ -501,9 +514,9 @@
     border: 1px solid var(--border-dim); 
     border-radius: 12px; 
     padding: 20px; 
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-elevation-2), var(--inset-highlight);
   }
   
   /* Dual Mode CSS */
@@ -556,6 +569,7 @@
     display: inline-flex;
     justify-content: center;
     align-items: center;
+    box-shadow: var(--shadow-elevation-1), var(--inset-highlight);
   }
   .btn:active { transform: scale(0.98); }
   .btn:focus-visible { outline: 2px solid var(--neon-green); outline-offset: 2px; }
@@ -675,7 +689,7 @@
 
   .model-card:hover {
     transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--shadow-elevation-3), var(--inset-highlight);
     border-color: transparent;
   }
   
@@ -683,14 +697,18 @@
   
   .model-card.active {
     border-color: transparent;
-    box-shadow: 0 0 30px rgba(0, 255, 136, 0.15);
+    background: rgba(10, 25, 15, 0.8);
+    box-shadow: var(--shadow-elevation-2), 0 0 25px rgba(0, 255, 136, 0.2), var(--inset-highlight);
   }
   .model-card.active::before { 
     opacity: 1; 
-    background: conic-gradient(from var(--angle), transparent 20%, var(--neon-green), #00ff88);
-    animation: rotate 2.5s linear infinite;
+    background: conic-gradient(from var(--angle), transparent 50%, var(--neon-green));
+    animation: rotate 3s linear infinite;
   }
-  .model-card.active::after { background: rgba(0, 255, 136, 0.05); }
+  .model-card.active::after { 
+    background: rgba(10, 20, 15, 0.85); 
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+  }
 
   .model-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; z-index: 2; position: relative; }
   .model-card-name { font-size: 16px; font-weight: 700; color: var(--text-primary); }
