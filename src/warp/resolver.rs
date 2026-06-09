@@ -62,18 +62,37 @@ impl WarpResolver {
 
         tokio::time::sleep(Duration::from_millis(1000)).await;
 
-        info!("Step 2: systemctl stop warp-svc");
-        run_sudo_command("systemctl stop warp-svc").await?;
+        #[cfg(target_os = "windows")]
+        {
+            info!("Step 2: Stopping Cloudflare WARP service");
+            run_sudo_command("net stop \"Cloudflare WARP\"").await?;
 
-        tokio::time::sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
 
-        info!("Step 3: Clearing WARP cache");
-        run_sudo_command("rm -rf /var/lib/cloudflare-warp/*").await?;
+            info!("Step 3: Clearing WARP cache");
+            run_sudo_command("del /Q /S \"C:\\ProgramData\\Cloudflare\\*\"").await?;
 
-        tokio::time::sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
 
-        info!("Step 4: systemctl start warp-svc");
-        run_sudo_command("systemctl start warp-svc").await?;
+            info!("Step 4: Starting Cloudflare WARP service");
+            run_sudo_command("net start \"Cloudflare WARP\"").await?;
+        }
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            info!("Step 2: systemctl stop warp-svc");
+            run_sudo_command("systemctl stop warp-svc").await?;
+
+            tokio::time::sleep(Duration::from_millis(500)).await;
+
+            info!("Step 3: Clearing WARP cache");
+            run_sudo_command("rm -rf /var/lib/cloudflare-warp/*").await?;
+
+            tokio::time::sleep(Duration::from_millis(500)).await;
+
+            info!("Step 4: systemctl start warp-svc");
+            run_sudo_command("systemctl start warp-svc").await?;
+        }
 
         tokio::time::sleep(Duration::from_millis(2000)).await;
 

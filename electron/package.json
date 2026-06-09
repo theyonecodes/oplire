@@ -1,0 +1,46 @@
+{
+  "name": "oplire",
+  "version": "2.6.3",
+  "description": "Rate limit reset + Anthropic Proxy Bridge",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "tui": "electron . --tui",
+    "build": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:mac": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.oplire.app",
+    "productName": "oplire",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "tui.js",
+      "gui/**/*",
+      "!node_modules/.cache"
+    ],
+    "extraResources": [
+      {
+        "from": "../target/release/oplire.exe",
+        "to": "oplire.exe"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0"
+  }
+}

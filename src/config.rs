@@ -25,7 +25,7 @@ pub struct ProxyConfig {
 }
 
 /// A free model available on OpenCode Zen.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FreeModel {
     /// Model identifier used by OpenCode Zen
     pub id: String,

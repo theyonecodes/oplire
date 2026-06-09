@@ -1,484 +1,56 @@
-```
-   ___      ___    _       ___     ___     ___
-  / _ \    | _ \  | |     |_ _|   | _ \   | __|
- | (_) |   |  _/  | |__    | |    |   /   | _|
-  \___/   _|_|_   |____|  |___|   |_|_\   |___|
-_|"""""|_| """ |_|"""""|_|"""""|_|"""""|_|"""""|
-"`-0-0-'"`-0-0-'"`-0-0-'"`-0-0-'"`-0-0-'"`-0-0-'
-     OpenCode Limit Reset + Proxy
-```
+# oplire
 
-[![Rust](https://img.shields.io/badge/rust-1.75%2B-orange?style=flat-square&logo=rust)](https://www.rust-lang.org)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+OpenCode Limit Reset + Anthropic Proxy Bridge
 
-## What is oplire?
+## What it does
 
-**oplire** is a dual-purpose tool:
+1. **Cross-Platform WARP Reset** — Rotates your IP via Cloudflare WARP to reset rate limits (Supports Windows, Linux, and macOS).
+2. **Proxy Bridge** — Connects Claude Code to OpenCode Zen's free models.
+3. **Web GUI** — Control panel with real-time System and Request logs, advanced settings, and easy access to models.
 
-1. **WARP Rate Limit Reset** — Rotates your IP via Cloudflare WARP to reset OpenCode rate limits
-2. **Anthropic Proxy Bridge** — Reverse proxy that connects Claude Code to OpenCode Zen's free models with automatic rate limit recovery
+## Install
 
-### What is a Proxy? (For Non-Technical Users)
+### Windows
+1. Run `build.cmd` to build from source
+2. Or download `oplire Setup <version>.exe` from Releases
 
-Think of a proxy like a **middleman** between you and the internet.
-
-**Without proxy:**
-```
-You → Internet
+### Linux / macOS
+```bash
+cargo build --release
+sudo cp target/release/oplire /usr/local/bin/
 ```
 
-**With proxy:**
-```
-You → Middleman (oplire) → Internet
-```
+## Usage
 
-**Why does this matter?**
+```bash
+# Check status
+oplire status
 
-1. **Access blocked content** — Some services limit how many requests you can make from one IP address. A proxy can change your IP address so you can keep using the service.
-
-2. **Privacy** — The website sees the proxy's IP address, not yours.
-
-3. **Free models** — oplire connects Claude Code (an AI coding assistant) to free AI models that would otherwise require payment.
-
-**In simple terms:** oplire is a smart middleman that:
-- Takes your requests
-- Sends them through different IP addresses (WARP or Tor)
-- Delivers the responses back to you
-- Helps you avoid rate limits and use free AI models
-
-### How Does It Work?
-
-```
-┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
-│ Claude Code │────▶│  oplire      │────▶│  OpenCode Zen   │
-│             │◀────│  Proxy       │◀────│  (free models)  │
-└─────────────┘     └──────────────┘     └─────────────────┘
-                          │
-                    ┌─────┴─────┐
-                    │  WARP /   │
-                    │  Tor      │
-                    └───────────┘
-```
-
-1. **Claude Code** (your AI assistant) sends a request
-2. **oplire** receives it and translates it to work with free models
-3. **WARP/Tor** routes it through different IP addresses
-4. **OpenCode Zen** processes it and sends back the response
-5. **oplire** translates the response back to Claude Code
-
-You don't need to understand any of this — just run `oplire start` and it works!
-
-### Features
-
-- **One-liner CLI** — `oplire start` launches proxy + Claude Code in one command
-- **Web Control Panel** — Glass morphism UI with model cards, effort picker, and WARP/Tor controls
-- **Tor Integration** — Route traffic through Tor with automatic circuit rotation on rate limits
-- **Tone System** — Professional, Witty, or Minimal personality for the control panel
-- **Pre-built Binary** — No Rust required. Download the `.exe` and go.
-
----
-
-## Prerequisites
-
-Before using oplire, make sure you have:
-
-| Required | What | Why | Install |
-|----------|------|-----|---------|
-| ✅ **Claude Code** | AI coding assistant CLI | The tool that connects to oplire | `npm install -g @anthropic-ai/claude-code` |
-| ✅ **Node.js** | JavaScript runtime | Required for Claude Code | https://nodejs.org/ |
-| ⚠️ **Cloudflare WARP** | VPN client | For IP rotation (optional but recommended) | https://1.1.1.1/ |
-| ⚠️ **Tor** | Anonymity network | For Tor routing (optional) | https://www.torproject.org/ |
-| ⚠️ **OpenCode** | AI coding tool | For OpenCode Zen models (optional) | `oplire install opencode` |
-
-**Quick check:** Run `oplire doctor` to verify everything is installed.
-
----
-
-## Install (Windows)
-
-### Option 1: Download the .exe (Recommended)
-
-**No build tools. No Rust. No pain.**
-
-1. Download `oplire-v2.6.3.exe` from [Releases](https://github.com/theyonecodes/oplire/releases/download/v2.6.3/oplire-v2.6.3.exe)
-2. Put it somewhere in your PATH (e.g. `C:\Users\You\.cargo\bin\`)
-3. Open PowerShell and run:
-
-```powershell
-# Make sure Cloudflare WARP is installed (download from https://1.1.1.1/ if not)
-oplire install warp
-
-# Reset your IP
+# Reset WARP tunnel (Cross-platform support)
 oplire reset
-```
 
-Done.
-
-### Option 2: Install via Cargo (if you already have Rust)
-
-```powershell
-cargo install --git https://github.com/theyonecodes/oplire.git
-```
-
----
-
-## Linux / macOS
-
-### AUR (Arch Linux)
-```bash
-yay -S oplire
-```
-
-### Homebrew (macOS)
-```bash
-brew install berkeoruc/oplire/oplire
-```
-
-### From Source
-```bash
-git clone https://github.com/theyonecodes/oplire.git
-cd oplire
-cargo build --release
-sudo cp target/release/oplire /usr/bin/oplire
-```
-
----
-
-## Quick Start
-
-### Free Models via Claude Code
-
-One command to start the proxy and launch Claude Code with free models:
-
-```powershell
-# Start proxy + Claude Code with default model (GLM 4.7 Free)
-oplire start
-
-# Pick a specific model
-oplire start --model minimax-m2.1-free
-
-# Set effort level (low/medium/high/xhigh/max)
-oplire start --effort low
-
-# Both
-oplire start --model kimi-k2.5-free --effort medium
-
-# Use Tor for routing
-oplire start --tor
-```
-
-### Web Control Panel
-
-Start the proxy and open the browser-based control panel:
-
-```powershell
-# Start proxy + auto-open browser
-oplire gui
-
-# Or start proxy manually
+# Start proxy
 oplire proxy
-# Then open http://localhost:8080
+
+# Install dependencies
+oplire install opencode
+oplire install claude
+
+# Launch web GUI
+oplire gui
 ```
 
-The control panel includes:
-
-- **Model Picker** — Visual cards for each free model with descriptions, specialties, and speed ratings
-- **Effort Level** — One-click buttons: Low, Medium, High, XHigh, Max
-- **Tone Selector** — Professional, Witty, or Minimal personality
-- **WARP Controls** — Status, Reset IP, Full Reset, Stop
-- **Tor Controls** — Start, Rotate Circuit, Stop, Exit IP display
-- **Diagnostics** — System health checks for WARP, Claude Code, Node.js, and port availability
-- **Quick Install** — Install OpenCode or Claude Code directly from the browser
-- **Request Log** — Real-time request monitoring with status codes and latency
-
----
-
-## Available Free Models
-
-These are the model IDs you can use with the `--model` flag:
-
-| Model ID | Display Name | Provider | Specialty | Speed |
-|----------|--------------|----------|-----------|-------|
-| `glm-4.7-free` | GLM 4.7 Free | Zhipu AI | Reasoning & Code | Fast |
-| `minimax-m2.1-free` | MiniMax M2.1 Free | MiniMax | Creative & Chat | Fast |
-| `kimi-k2.5-free` | Kimi K2.5 Free | Moonshot AI | Long Context & Analysis | Medium |
-| `qwen-2.5-72b-free` | Qwen 2.5 72B Free | Alibaba Cloud | General Purpose | Medium |
-| `llama-3.3-70b-free` | Llama 3.3 70B Free | Meta | Balanced Performance | Fast |
-
-**Default model:** `glm-4.7-free` (used when you don't specify `--model`)
-
-**Usage examples:**
-
-```powershell
-# Use a specific model
-oplire start --model minimax-m2.1-free
-
-# Use a different model
-oplire start --model llama-3.3-70b-free
-
-# Use the default (glm-4.7-free)
-oplire start
-```
-
-All models are **free** with **128K context windows**.
-
-### Effort Level
-
-The `--effort` flag controls how much reasoning the model does:
-
-| Level | When to use | Speed |
-|-------|-------------|-------|
-| `low` | Quick questions, simple tasks | Fastest |
-| `medium` | General coding, explanations | Fast |
-| `high` | **Default** — Most coding tasks | Medium |
-| `xhigh` | Complex problems, debugging | Slow |
-| `max` | Hardest problems, best quality | Slowest |
-
-**Usage examples:**
-
-```powershell
-# Quick question
-oplire start --effort low
-
-# Default (high)
-oplire start
-
-# Complex debugging
-oplire start --effort xhigh
-
-# Best quality
-oplire start --effort max
-```
-
-**In Claude Code:** Type `/model` to switch models on the fly, or `/effort` to change effort level mid-session.
-
----
-
-## CLI Commands
-
-### Proxy
-
-```powershell
-oplire proxy                    # Start proxy on :8080
-oplire proxy --port 9090        # Custom port
-oplire proxy --tor              # Route through Tor
-```
-
-### Start (One-liner)
-
-```powershell
-oplire start                                    # Default model + effort
-oplire start --model llama-3.3-70b-free         # Specific model
-oplire start --effort max                       # Max effort
-oplire start --tor                              # Use Tor routing
-```
-
-### Web GUI
-
-```powershell
-oplire gui                      # Start proxy + open browser
-oplire gui --port 9090          # Custom port
-oplire gui --tor                # Route through Tor
-```
-
-### WARP Reset
-
-```powershell
-oplire reset                    # Full WARP tunnel reset
-oplire quick-reset              # Fast IP rotation
-oplire status                   # Check WARP status
-```
-
-### Tor
-
-```powershell
-oplire tor status               # Check Tor status
-oplire tor start                # Start Tor daemon
-oplire tor stop                 # Stop Tor daemon
-oplire tor rotate               # Force circuit rotation
-oplire tor ip                   # Show current exit IP
-```
-
-### Diagnostics
-
-```powershell
-oplire doctor                   # System health check
-```
-
----
-
-## Configuration
-
-Configuration is stored at `~/.config/oplire/config.json`:
-
-```json
-{
-  "listen": "127.0.0.1:8080",
-  "upstream": "http://localhost:3000",
-  "max_retries": 3,
-  "warp_delay": 5000,
-  "tone": "witty",
-  "use_tor": false,
-  "tor_port": 9050,
-  "rotation_mode": "on_block",
-  "rotation_interval_secs": 300
-}
-```
-
-### Tone Settings
-
-| Tone | Description |
-|------|-------------|
-| `professional` | Clean, corporate, no-nonsense |
-| `witty` | Fun, sarcastic, personality-driven |
-| `minimal` | Just the facts, bare minimum |
-
-### Tor Rotation Modes
-
-| Mode | Behavior |
-|------|----------|
-| `on_block` | Rotate IP only when rate-limited (default) |
-| `timed` | Rotate every N seconds (configurable) |
-
----
-
-## API Endpoints
-
-The proxy exposes a REST API for the web control panel:
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Web control panel |
-| `/api/status` | GET | System status (WARP, Tor, OpenCode, proxy) |
-| `/api/config` | GET/POST | Get/update configuration |
-| `/api/config/reset` | POST | Reset config to defaults |
-| `/api/logs` | GET | Request logs |
-| `/api/launch` | POST | Launch Claude Code |
-| `/api/doctor` | GET | System diagnostics |
-| `/api/warp/reset` | POST | Reset WARP IP |
-| `/api/warp/full-reset` | POST | Full WARP reset (disconnect + re-register) |
-| `/api/warp/stop` | POST | Disconnect WARP |
-| `/api/tor/status` | GET | Tor status |
-| `/api/tor/start` | POST | Start Tor |
-| `/api/tor/stop` | POST | Stop Tor |
-| `/api/tor/rotate` | POST | Force circuit rotation |
-| `/api/tor/config` | POST | Update Tor settings |
-| `/api/settings` | GET/POST | Tone settings |
-| `/api/install/opencode` | POST | Install OpenCode via npm |
-| `/api/install/claude-code` | POST | Install Claude Code via npm |
-| `/v1/models` | GET | Anthropic-compatible model list |
-| `/v1/messages` | POST | Anthropic-compatible message endpoint |
-| `/health` | GET | Health check |
-
----
-
-## Logging
-
-oplire automatically logs all proxy requests to a persistent file. The log destination is:
-`~/.config/oplire/logs.jsonl`
-
-The logs are written in NDJSON format (newline-delimited JSON), allowing for easy parsing and ingestion.
-
-### Log Format
-Each line contains a JSON object representing a single request:
-```json
-{
-  "timestamp": "1717594900",
-  "method": "POST",
-  "path": "/v1/chat/completions",
-  "status": 200,
-  "duration_ms": 1542,
-  "model": "glm-4.7-free",
-  "tone": "witty"
-}
-```
-
-*Note: The log format changes dynamically depending on the current tone setting. For example, the `explainer` tone adds a special `note` field to the log.*
-
----
-
-## Troubleshooting
-
-**"oplire" not recognized** — Make sure the .exe location is in your PATH, or run it from its folder.
-
-**WARP not connecting** — Install Cloudflare WARP from https://1.1.1.1/ first.
-
-**Rate limit not resetting** — Run `oplire status`, then `oplire reset`.
-
-**Tor not working** — Make sure Tor is installed (`oplire tor status`). On Windows, install Tor Browser or use `tor` from the Tor expert bundle.
-
-**Claude Code not found** — Run `oplire doctor` to check. Install via `npm install -g @anthropic-ai/claude-code` or use the Install button in the web GUI.
-
-**Port 8080 in use** — Use `oplire proxy --port 9090` or stop the other process.
-
----
-
-## Architecture
-
-oplire sits between Claude Code and OpenCode Zen, translating requests between Anthropic and OpenCode formats. WARP or Tor provides IP rotation when rate limits are hit.
-
-- **Claude Code** connects to oplire as if it were Anthropic's API
-- **oplire** translates requests to OpenCode Zen's format
-- **WARP/Tor** provides IP rotation when rate limits hit
-- **Web GUI** controls everything from the browser
-
-### Request Flow
-
-1. You type a message in Claude Code
-2. Claude Code sends it to `http://127.0.0.1:8080` (oplire proxy)
-3. oplire translates the request to OpenCode Zen format
-4. Request is routed through WARP or Tor (if enabled)
-5. OpenCode Zen processes it with the selected free model
-6. Response flows back through oplire to Claude Code
-7. You see the response in Claude Code
-
-**You don't need to understand this** — just run `oplire start` and it works!
-
----
-
-## Versioning
-
-We follow [Semantic Versioning](https://semver.org/):
-
-```
-MAJOR.MINOR.PATCH
-```
-
-| Increment | When | Example |
-|-----------|------|---------|
-| **MAJOR** | Breaking changes (CLI args, config format, API) | 1.0.0 → 2.0.0 |
-| **MINOR** | New features, backwards compatible | 2.5.0 → 2.6.3 |
-| **PATCH** | Bug fixes, small improvements | 2.6.3 → 2.6.3 |
-
-### Release Process
-
-**Automated via GitHub Actions:**
-
-1. Update version in `Cargo.toml`
-2. Update download link in `README.md`
-3. Commit: `git commit -m "bump version to X.Y.Z"`
-4. Tag: `git tag vX.Y.Z`
-5. Push: `git push origin master --tags`
-
-GitHub Actions will automatically build binaries for Windows, Linux, and macOS, then create a GitHub Release with all assets.
-
-**Manual:**
+## Build
 
 ```bash
+# Windows - double-click build.cmd
+# Or from terminal:
+.\build.ps1
+
+# Linux/macOS
 cargo build --release
-gh release create vX.Y.Z target/release/oplire.exe \
-  --title "Release vX.Y.Z" \
-  --notes "Release notes"
 ```
-
----
-
-## Credits
-
-Created by [Berke Oruc](https://github.com/BerkeOruc). This fork adds pre-built Windows binaries, web control panel, Tor integration, and simplified installation.
-
-Original repository: https://github.com/BerkeOruc/oplire
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT

@@ -20,3 +20,10 @@ Thumbs.db
 oplire.exe
 oplire-*.exe
 *.tar.gz
+
+# Electron
+electron/node_modules/
+electron/dist/
+
+oplire.log
+oplire/

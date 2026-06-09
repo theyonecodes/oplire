@@ -1,4 +1,3 @@
-use crate::core::AppConfig;
 use colored::*;
 use std::process::Command;
 
@@ -9,6 +8,14 @@ pub enum InstallTarget {
     ClaudeCode,
     Node,
     GitHubCLI,
+}
+
+fn get_command_name(base: &str) -> String {
+    if cfg!(target_os = "windows") {
+        format!("{}.cmd", base)
+    } else {
+        base.to_string()
+    }
 }
 
 /// Check if Node.js is installed and accessible
@@ -22,7 +29,7 @@ pub fn check_node_installed() -> bool {
 
 /// Check if Claude Code is installed globally
 pub fn check_claude_installed() -> bool {
-    Command::new("claude")
+    Command::new(get_command_name("claude"))
         .arg("--version")
         .output()
         .map(|o| o.status.success())
@@ -31,8 +38,14 @@ pub fn check_claude_installed() -> bool {
 
 /// Check if OpenCode is installed globally
 pub fn check_opencode_installed() -> bool {
-    Command::new("opencode")
+    let cmd = get_command_name("opencode");
+    Command::new(&cmd)
         .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+        || Command::new(&cmd)
+        .arg("--help")
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
@@ -281,7 +294,6 @@ pub fn install_node() -> Result<(), String> {
     }
 }
 
-#[cfg(target_os = "windows")]
 fn install_node_windows() -> Result<(), String> {
     println!("{} Downloading Node.js installer for Windows...", "→".dimmed());
 
@@ -302,7 +314,6 @@ fn install_node_windows() -> Result<(), String> {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn install_node_macos() -> Result<(), String> {
     println!("{} Installing Node.js via Homebrew...", "→".dimmed());
 
@@ -319,7 +330,6 @@ fn install_node_macos() -> Result<(), String> {
     }
 }
 
-#[cfg(target_os = "linux")]
 fn install_node_linux() -> Result<(), String> {
     println!("{} Installing Node.js via package manager...", "→".dimmed());
 
@@ -364,7 +374,6 @@ pub fn install_github_cli() -> Result<(), String> {
     }
 }
 
-#[cfg(target_os = "windows")]
 fn install_gh_windows() -> Result<(), String> {
     println!("{} Installing GitHub CLI via winget...", "→".dimmed());
 
@@ -381,7 +390,6 @@ fn install_gh_windows() -> Result<(), String> {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn install_gh_macos() -> Result<(), String> {
     println!("{} Installing GitHub CLI via Homebrew...", "→".dimmed());
 
@@ -398,7 +406,6 @@ fn install_gh_macos() -> Result<(), String> {
     }
 }
 
-#[cfg(target_os = "linux")]
 fn install_gh_linux() -> Result<(), String> {
     println!("{} Installing GitHub CLI...", "→".dimmed());
 

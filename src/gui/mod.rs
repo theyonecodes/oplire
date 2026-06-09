@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::info;
 
-use crate::config::{save_config, load_config};
+use crate::config::{save_config, load_config, AppConfig};
 use crate::proxy::handlers::ProxyState;
 
 const INDEX_HTML: &str = include_str!("index.html");
@@ -29,6 +29,7 @@ pub async fn api_status(
 
     let warp_status = check_warp_status().await;
     let opencode_status = check_opencode_status(&config.opencode_base_url).await;
+    let tor_status = crate::tor::get_tor_status().await;
 
     Json(json!({
         "version": env!("CARGO_PKG_VERSION"),
@@ -40,6 +41,12 @@ pub async fn api_status(
         },
         "warp": warp_status,
         "opencode": opencode_status,
+        "tor": {
+            "installed": tor_status.installed,
+            "running": tor_status.running,
+            "exit_ip": tor_status.exit_ip,
+            "socks_port": tor_status.socks_port,
+        },
         "tone": tone,
     }))
 }
@@ -71,15 +78,44 @@ pub async fn api_config_post(
     let mut state_guard = state.lock().await;
 
     if let Some(upstream) = body.get("upstream").and_then(|v| v.as_str()) {
+        if !upstream.starts_with("http://") && !upstream.starts_with("https://") {
+            return (StatusCode::BAD_REQUEST, Json(json!({
+                "ok": false,
+                "error": "Invalid upstream URL",
+                "hint": "URL must start with http:// or https://"
+            }))).into_response();
+        }
         state_guard.config.opencode_base_url = upstream.to_string();
     }
     if let Some(max_retries) = body.get("max_retries").and_then(|v| v.as_u64()) {
+        if max_retries > 100 {
+            return (StatusCode::BAD_REQUEST, Json(json!({
+                "ok": false,
+                "error": "max_retries must be between 0 and 100",
+                "hint": "A reasonable value is 3-5"
+            }))).into_response();
+        }
         state_guard.config.max_retries = max_retries as u32;
     }
     if let Some(warp_delay) = body.get("warp_delay_ms").and_then(|v| v.as_u64()) {
+        if warp_delay > 60000 {
+            return (StatusCode::BAD_REQUEST, Json(json!({
+                "ok": false,
+                "error": "warp_delay_ms must be between 0 and 60000",
+                "hint": "A reasonable value is 1000-10000"
+            }))).into_response();
+        }
         state_guard.config.warp_reset_delay_ms = warp_delay;
     }
     if let Some(tone) = body.get("tone").and_then(|v| v.as_str()) {
+        let valid_tones = ["professional", "witty", "minimal"];
+        if !valid_tones.contains(&tone) {
+            return (StatusCode::BAD_REQUEST, Json(json!({
+                "ok": false,
+                "error": format!("Invalid tone: {}", tone),
+                "hint": format!("Valid tones: {}", valid_tones.join(", "))
+            }))).into_response();
+        }
         state_guard.tone = tone.to_string();
     }
 
@@ -97,12 +133,20 @@ pub async fn api_config_post(
     app_config.rotation_mode = config_snapshot.rotation_mode.clone();
     app_config.rotation_interval_secs = config_snapshot.rotation_interval_secs;
 
-    if let Err(e) = save_config(&app_config) {
-        info!("Failed to save config: {}", e);
+    match save_config(&app_config) {
+        Ok(()) => {
+            info!("Config updated via GUI");
+            (StatusCode::OK, Json(json!({"ok": true, "message": "Configuration saved successfully"}))).into_response()
+        }
+        Err(e) => {
+            tracing::error!("Failed to save config: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
+                "ok": false,
+                "error": format!("Failed to save configuration: {}", e),
+                "hint": "Check file permissions and disk space"
+            }))).into_response()
+        }
     }
-
-    info!("Config updated via GUI");
-    (StatusCode::OK, Json(json!({"ok": true}))).into_response()
 }
 
 pub async fn api_logs(
@@ -152,7 +196,8 @@ pub async fn api_launch(
         }
     }
 
-    let claude_check = tokio::process::Command::new("claude")
+    let cmd_name = if cfg!(target_os = "windows") { "claude.cmd" } else { "claude" };
+    let claude_check = tokio::process::Command::new(cmd_name)
         .arg("--version")
         .output()
         .await;
@@ -168,7 +213,7 @@ pub async fn api_launch(
 
     info!("Launching Claude Code from GUI: model={}, effort={:?}", model, effort);
 
-    let mut cmd = tokio::process::Command::new("claude");
+    let mut cmd = tokio::process::Command::new(cmd_name);
     cmd.env("ANTHROPIC_BASE_URL", format!("http://{}", config.listen_addr));
     cmd.env("ANTHROPIC_API_KEY", "oplire-proxy-key");
     cmd.env("ANTHROPIC_MODEL", model);
@@ -399,11 +444,12 @@ fn fallback_models() -> Vec<Value> {
 pub async fn api_doctor() -> impl IntoResponse {
     let warp_installed = tokio::process::Command::new("warp-cli")
         .arg("--version").output().await.is_ok();
-    let claude_installed = tokio::process::Command::new("claude")
+    let claude_cmd = if cfg!(target_os = "windows") { "claude.cmd" } else { "claude" };
+    let claude_installed = tokio::process::Command::new(claude_cmd)
         .arg("--version").output().await.is_ok();
     let node_installed = tokio::process::Command::new("node")
         .arg("--version").output().await.is_ok();
-    let port_available = tokio::net::TcpListener::bind("127.0.0.1:8080").await.is_ok();
+    let _port_available = tokio::net::TcpListener::bind("127.0.0.1:8080").await.is_ok();
 
     // If we are running the API, port 8080 IS bound by us. So port 8080 check is technically OK if we can serve this request!
     let port_available = true;
@@ -419,6 +465,10 @@ pub async fn api_doctor() -> impl IntoResponse {
 // === Config reset ===
 pub async fn api_config_reset() -> Response {
     info!("Config reset requested from GUI");
+    let default_config = AppConfig::default();
+    if let Err(e) = save_config(&default_config) {
+        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": e}))).into_response();
+    }
     (StatusCode::OK, Json(json!({"ok": true, "message": "Config reset to defaults"}))).into_response()
 }
 
@@ -428,14 +478,16 @@ pub async fn api_warp_full_reset() -> Response {
     let steps = if cfg!(target_os = "windows") {
         vec![
             ("warp-cli disconnect", vec!["warp-cli", "disconnect"]),
-            ("net stop Cloudflare WARP", vec!["net", "stop", "Cloudflare WARP"]),
-            ("net start Cloudflare WARP", vec!["net", "start", "Cloudflare WARP"]),
+            ("net stop Cloudflare WARP", vec!["cmd", "/c", "net stop \"Cloudflare WARP\""]),
+            ("clear WARP cache", vec!["cmd", "/c", "del /Q /S \"C:\\ProgramData\\Cloudflare\\*\""]),
+            ("net start Cloudflare WARP", vec!["cmd", "/c", "net start \"Cloudflare WARP\""]),
         ]
     } else {
         vec![
             ("warp-cli disconnect", vec!["warp-cli", "disconnect"]),
-            ("systemctl stop warp-svc", vec!["systemctl", "-n", "stop", "warp-svc"]),
-            ("systemctl start warp-svc", vec!["systemctl", "-n", "start", "warp-svc"]),
+            ("systemctl stop warp-svc", vec!["sudo", "-n", "sh", "-c", "systemctl stop warp-svc"]),
+            ("clear WARP cache", vec!["sudo", "-n", "sh", "-c", "rm -rf /var/lib/cloudflare-warp/*"]),
+            ("systemctl start warp-svc", vec!["sudo", "-n", "sh", "-c", "systemctl start warp-svc"]),
         ]
     };
 
@@ -465,10 +517,39 @@ pub async fn api_warp_full_reset() -> Response {
 
 // === WARP stop ===
 pub async fn api_warp_stop() -> Response {
-    info!("WARP stop triggered from GUI");
-    let _ = tokio::process::Command::new("warp-cli")
+    info!("WARP disconnect triggered from GUI");
+    let output = tokio::process::Command::new("warp-cli")
         .arg("disconnect").output().await;
-    (StatusCode::OK, Json(json!({"ok": true, "message": "WARP disconnected"}))).into_response()
+    match output {
+        Ok(o) if o.status.success() => {
+            (StatusCode::OK, Json(json!({"ok": true, "message": "WARP disconnected"}))).into_response()
+        }
+        Ok(o) => {
+            let err = String::from_utf8_lossy(&o.stderr);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": err.to_string()}))).into_response()
+        }
+        Err(e) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": e.to_string()}))).into_response()
+        }
+    }
+}
+
+pub async fn api_warp_connect() -> Response {
+    info!("WARP connect triggered from GUI");
+    let output = tokio::process::Command::new("warp-cli")
+        .arg("connect").output().await;
+    match output {
+        Ok(o) if o.status.success() => {
+            (StatusCode::OK, Json(json!({"ok": true, "message": "WARP connected"}))).into_response()
+        }
+        Ok(o) => {
+            let err = String::from_utf8_lossy(&o.stderr);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": err.to_string()}))).into_response()
+        }
+        Err(e) => {
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": e.to_string()}))).into_response()
+        }
+    }
 }
 
 // === Install opencode ===
@@ -514,7 +595,16 @@ pub async fn api_install_tor() -> Response {
             $dest = "C:\tor"
             if (!(Test-Path $dest)) { New-Item -ItemType Directory -Force -Path $dest | Out-Null }
             Invoke-WebRequest -Uri $url -OutFile "$dest\tor.tar.gz"
+            # Verify download exists and has reasonable size (at least 1MB)
+            $file = Get-Item "$dest\tor.tar.gz"
+            if ($file.Length -lt 1048576) {
+                throw "Downloaded file is too small ($($file.Length) bytes). Download may be corrupted."
+            }
             tar -xf "$dest\tor.tar.gz" -C $dest
+            # Verify tor.exe exists after extraction
+            if (!(Test-Path "$dest\tor\tor.exe")) {
+                throw "tor.exe not found after extraction. Archive may be corrupted."
+            }
             $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
             if ($userPath -notmatch "C:\\tor\\tor") {
                 [Environment]::SetEnvironmentVariable("Path", "$userPath;C:\tor\tor", "User")
@@ -638,17 +728,23 @@ pub async fn api_settings_post(
     State(state): State<Arc<Mutex<ProxyState>>>,
     Json(body): Json<Value>,
 ) -> Response {
-    let tone = body.get("tone").and_then(|v| v.as_str()).unwrap_or("witty").to_string();
     let mut state_guard = state.lock().await;
-    state_guard.tone = tone.clone();
+
+    if let Some(tone) = body.get("tone").and_then(|v| v.as_str()) {
+        let tone = tone.to_string();
+        state_guard.tone = tone.clone();
+        let mut app_config = load_config();
+        app_config.tone = tone.clone();
+        let _ = save_config(&app_config);
+        info!("Tone setting changed to: {}", tone);
+    }
+
+    if let Some(effort) = body.get("effort_level").and_then(|v| v.as_str()) {
+        info!("Effort level set to: {}", effort);
+    }
+
     drop(state_guard);
-
-    let mut app_config = load_config();
-    app_config.tone = tone.clone();
-    let _ = save_config(&app_config);
-
-    info!("Tone setting changed to: {}", tone);
-    (StatusCode::OK, Json(json!({"ok": true, "tone": tone}))).into_response()
+    (StatusCode::OK, Json(json!({"ok": true}))).into_response()
 }
 
 pub async fn api_advanced_config_get(
@@ -698,7 +794,45 @@ pub async fn api_advanced_config_post(
 pub async fn api_system_logs() -> impl IntoResponse {
     let mut logs = Vec::new();
     if let Ok(content) = std::fs::read_to_string("oplire.log") {
-        logs = content.lines().rev().take(100).map(|s| s.to_string()).collect();
+        for line in content.lines().rev().take(100) {
+            // Very naive parser for format: "2026-06-09T12:38:49.064758Z  INFO oplire: message..."
+            let parts: Vec<&str> = line.splitn(4, ' ').collect();
+            if parts.len() >= 4 {
+                let timestamp = parts[0].trim();
+                // parts[1] might be empty if there are multiple spaces
+                let mut level_idx = 1;
+                while level_idx < parts.len() && parts[level_idx].trim().is_empty() {
+                    level_idx += 1;
+                }
+                if level_idx + 2 < parts.len() {
+                    let level = parts[level_idx].trim();
+                    let target = parts[level_idx + 1].trim().trim_end_matches(':');
+                    let message = parts[level_idx + 2..].join(" ").trim().to_string();
+
+                    logs.push(json!({
+                        "timestamp": timestamp,
+                        "level": level,
+                        "target": target,
+                        "message": message,
+                    }));
+                } else {
+                    // Fallback
+                    logs.push(json!({
+                        "timestamp": "",
+                        "level": "INFO",
+                        "target": "system",
+                        "message": line,
+                    }));
+                }
+            } else {
+                logs.push(json!({
+                    "timestamp": "",
+                    "level": "INFO",
+                    "target": "system",
+                    "message": line,
+                }));
+            }
+        }
         logs.reverse();
     }
     Json(json!({ "logs": logs }))

@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use oplire_reset::{ProxyConfig, AppConfig};
+use oplire_reset::{ProxyConfig, AppConfig, check_node_installed, check_claude_installed, check_opencode_installed, install_opencode, install_claude_code};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -35,6 +35,8 @@ enum Commands {
         target: InstallTarget,
     },
     Stop {},
+    Disconnect {},
+    WarpConnect {},
     About {},
     Proxy {
         #[arg(long, default_value = "127.0.0.1:8080")]
@@ -236,15 +238,6 @@ fn check_warp_installed() -> bool {
     Command::new("warp-cli").arg("--version").output().is_ok()
 }
 
-fn check_claude_installed() -> bool {
-    Command::new("claude").arg("--version").output().is_ok()
-}
-
-fn check_opencode_installed() -> bool {
-    Command::new("opencode").arg("--version").output().is_ok()
-        || Command::new("opencode").arg("--help").output().is_ok()
-}
-
 fn check_opencode_running(base_url: &str) -> bool {
     let url = format!("{}/v1/models", base_url.trim_end_matches('/'));
     reqwest::blocking::Client::new()
@@ -253,10 +246,6 @@ fn check_opencode_running(base_url: &str) -> bool {
         .send()
         .map(|r| r.status().is_success())
         .unwrap_or(false)
-}
-
-fn check_node_installed() -> bool {
-    Command::new("node").arg("--version").output().is_ok()
 }
 
 fn run_command(cmd: &str, args: &[&str], dry_run: bool, verbose: bool) -> Result<String, String> {
@@ -453,14 +442,56 @@ fn print_info_formatted(label: &str, desc: &str) {
 }
 
 fn main() {
-    // Initialize tracing to oplire.log
+    // Set panic hook to log crashes
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let thread = std::thread::current();
+        let thread_name = thread.name().unwrap_or("unknown");
+        let payload = info.payload();
+        let msg = if let Some(s) = payload.downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Box<dyn Any>".to_string()
+        };
+        let location = info.location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "unknown".to_string());
+        eprintln!("\n========== CRASH ==========");
+        eprintln!("Thread: {}", thread_name);
+        eprintln!("Message: {}", msg);
+        eprintln!("Location: {}", location);
+        eprintln!("===========================\n");
+        // Also write to log file
+        let _ = std::fs::OpenOptions::new()
+            .create(true).append(true)
+            .open("oplire.log")
+            .and_then(|mut f| {
+                use std::io::Write;
+                writeln!(f, "\n========== CRASH ==========\nThread: {}\nMessage: {}\nLocation: {}\n===========================",
+                    thread_name, msg, location)
+            });
+        default_hook(info);
+    }));
+
+    // Initialize tracing to file
     if let Ok(log_file) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open("oplire.log")
     {
+        use std::sync::Mutex;
+        struct FileWriter(Mutex<std::fs::File>);
+        impl tracing_subscriber::fmt::MakeWriter<'_> for FileWriter {
+            type Writer = std::io::BufWriter<std::fs::File>;
+            fn make_writer(&self) -> Self::Writer {
+                std::io::BufWriter::new(self.0.lock().unwrap().try_clone().unwrap())
+            }
+        }
         let _ = tracing_subscriber::fmt()
-            .with_writer(std::sync::Arc::new(log_file))
+            .with_writer(FileWriter(Mutex::new(log_file)))
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
             .try_init();
     }
 
@@ -468,6 +499,7 @@ fn main() {
 
     if cli.verbose {
         eprintln!("{} Verbose mode enabled", "[DEBUG]".yellow());
+        eprintln!("{} Logging to oplire.log (debug level)", "[DEBUG]".yellow());
     }
 
     if cli.dry_run {
@@ -478,6 +510,9 @@ fn main() {
     }
 
     let warp_installed = check_warp_installed();
+
+    tracing::info!("oplire v{} starting, command: {:?}", VERSION, cli.command);
+    tracing::info!("warp_installed={}", warp_installed);
 
     match &cli.command {
         Commands::Models { upstream } => {
@@ -660,10 +695,12 @@ fn main() {
                         let _ = run_interactive("oplire", &["install", "warp"]);
                     }
                     "OpenCode" => {
-                        let _ = run_interactive("oplire", &["install", "opencode"]);
+                        let npm_cmd = if cfg!(target_os = "windows") { "npm.cmd" } else { "npm" };
+                        let _ = run_interactive(npm_cmd, &["install", "-g", "opencode-ai"]);
                     }
                     "Claude Code" => {
-                        let _ = run_interactive("oplire", &["install", "claude-code"]);
+                        let npm_cmd = if cfg!(target_os = "windows") { "npm.cmd" } else { "npm" };
+                        let _ = run_interactive(npm_cmd, &["install", "-g", "@anthropic-ai/claude-code"]);
                     }
                     _ => {}
                 }
@@ -748,8 +785,7 @@ fn main() {
                     std::process::exit(1);
                 }
 
-                print_step(1, "Installing OpenCode via npm...");
-                match run_interactive("npm", &["install", "-g", "opencode-ai"]) {
+                match install_opencode() {
                     Ok(()) => {
                         print_success("OpenCode installed");
                         println!();
@@ -773,7 +809,8 @@ fn main() {
                 println!();
 
                 if check_claude_installed() {
-                    let version = run_command("claude", &["--version"], false, false)
+                    let cmd = if cfg!(target_os = "windows") { "claude.cmd" } else { "claude" };
+                    let version = run_command(cmd, &["--version"], false, false)
                         .map(|v| v.trim().to_string())
                         .unwrap_or_else(|_| "unknown".to_string());
                     println!("{} Claude Code is already installed ({})", "[INFO]".green(), version.dimmed());
@@ -786,8 +823,7 @@ fn main() {
                     std::process::exit(1);
                 }
 
-                print_step(1, "Installing Claude Code via npm...");
-                match run_interactive("npm", &["install", "-g", "@anthropic-ai/claude-code"]) {
+                match install_claude_code() {
                     Ok(()) => {
                         print_success("Claude Code installed");
                         println!();
@@ -820,14 +856,20 @@ fn main() {
                 if check_opencode_installed() {
                     print_success("OpenCode already installed");
                 } else {
-                    let _ = run_interactive("oplire", &["install", "opencode"]);
+                    match install_opencode() {
+                        Ok(()) => print_success("OpenCode installed"),
+                        Err(e) => print_fail(&format!("OpenCode install failed: {}", e)),
+                    }
                 }
 
                 print_step(3, "Checking Claude Code...");
                 if check_claude_installed() {
                     print_success("Claude Code already installed");
                 } else {
-                    let _ = run_interactive("oplire", &["install", "claude-code"]);
+                    match install_claude_code() {
+                        Ok(()) => print_success("Claude Code installed"),
+                        Err(e) => print_fail(&format!("Claude Code install failed: {}", e)),
+                    }
                 }
 
                 println!();
@@ -948,7 +990,8 @@ fn main() {
             println!("{}", "Launching Claude Code...".dimmed());
             println!();
 
-            let mut cmd = Command::new("claude");
+            let cmd_name = if cfg!(target_os = "windows") { "claude.cmd" } else { "claude" };
+            let mut cmd = Command::new(cmd_name);
             cmd.env("ANTHROPIC_BASE_URL", format!("http://{}", listen_clone))
                 .env("ANTHROPIC_API_KEY", "oplire-proxy-key");
 
@@ -1084,7 +1127,8 @@ fn main() {
             println!("{}", "Launching Claude Code...".dimmed());
             println!();
 
-            let mut cmd = Command::new("claude");
+            let cmd_name = if cfg!(target_os = "windows") { "claude.cmd" } else { "claude" };
+            let mut cmd = Command::new(cmd_name);
             cmd.env("ANTHROPIC_BASE_URL", format!("http://{}", listen_clone))
                 .env("ANTHROPIC_API_KEY", "oplire-proxy-key");
 
@@ -1507,24 +1551,49 @@ fn main() {
             }
             let _ = run_command("warp-cli", &["disconnect"], cli.dry_run, cli.verbose);
 
-            if cli.verbose {
-                eprintln!("{} Step 2: Stopping warp-svc...", "[DEBUG]".cyan());
-            }
-            let _ = run_sudo_command("systemctl stop warp-svc", cli.dry_run, cli.verbose);
+            #[cfg(target_os = "windows")]
+            {
+                if cli.verbose {
+                    eprintln!("{} Step 2: Stopping Cloudflare WARP...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command("net stop \"Cloudflare WARP\"", cli.dry_run, cli.verbose);
 
-            if cli.verbose {
-                eprintln!("{} Step 3: Clearing cache...", "[DEBUG]".cyan());
-            }
-            let _ = run_sudo_command(
-                "rm -rf /var/lib/cloudflare-warp/*",
-                cli.dry_run,
-                cli.verbose,
-            );
+                if cli.verbose {
+                    eprintln!("{} Step 3: Clearing cache...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command(
+                    "del /Q /S \"C:\\ProgramData\\Cloudflare\\*\"",
+                    cli.dry_run,
+                    cli.verbose,
+                );
 
-            if cli.verbose {
-                eprintln!("{} Step 4: Starting warp-svc...", "[DEBUG]".cyan());
+                if cli.verbose {
+                    eprintln!("{} Step 4: Starting Cloudflare WARP...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command("net start \"Cloudflare WARP\"", cli.dry_run, cli.verbose);
             }
-            let _ = run_sudo_command("systemctl start warp-svc", cli.dry_run, cli.verbose);
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                if cli.verbose {
+                    eprintln!("{} Step 2: Stopping warp-svc...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command("systemctl stop warp-svc", cli.dry_run, cli.verbose);
+
+                if cli.verbose {
+                    eprintln!("{} Step 3: Clearing cache...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command(
+                    "rm -rf /var/lib/cloudflare-warp/*",
+                    cli.dry_run,
+                    cli.verbose,
+                );
+
+                if cli.verbose {
+                    eprintln!("{} Step 4: Starting warp-svc...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command("systemctl start warp-svc", cli.dry_run, cli.verbose);
+            }
 
             if cli.verbose {
                 eprintln!("{} Step 5: Registering new tunnel...", "[DEBUG]".cyan());
@@ -1559,18 +1628,59 @@ fn main() {
             }
             let _ = run_command("warp-cli", &["disconnect"], cli.dry_run, cli.verbose);
 
-            if cli.verbose {
-                eprintln!("{} Step 2: Stopping warp-svc...", "[DEBUG]".cyan());
-            }
-            let _ = run_sudo_command("systemctl stop warp-svc", cli.dry_run, cli.verbose);
+            #[cfg(target_os = "windows")]
+            {
+                if cli.verbose {
+                    eprintln!("{} Step 2: Stopping Cloudflare WARP...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command("net stop \"Cloudflare WARP\"", cli.dry_run, cli.verbose);
 
-            if cli.verbose {
-                eprintln!("{} Step 3: Disabling warp-svc...", "[DEBUG]".cyan());
+                if cli.verbose {
+                    eprintln!("{} Step 3: Disabling Cloudflare WARP...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command("sc config \"Cloudflare WARP\" start=disabled", cli.dry_run, cli.verbose);
             }
-            let _ = run_sudo_command("systemctl disable warp-svc", cli.dry_run, cli.verbose);
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                if cli.verbose {
+                    eprintln!("{} Step 2: Stopping warp-svc...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command("systemctl stop warp-svc", cli.dry_run, cli.verbose);
+
+                if cli.verbose {
+                    eprintln!("{} Step 3: Disabling warp-svc...", "[DEBUG]".cyan());
+                }
+                let _ = run_sudo_command("systemctl disable warp-svc", cli.dry_run, cli.verbose);
+            }
 
             println!("{}", "WARP tunnel stopped!".green().bold());
             println!("{} Run `oplire reset` to restart", "Tip:".cyan());
+        }
+
+        Commands::Disconnect {} => {
+            if !warp_installed {
+                println!("{} WARP is not installed", "[ERROR]".red());
+                return;
+            }
+            println!("{}", "Disconnecting WARP...".bold());
+            match run_command("warp-cli", &["disconnect"], cli.dry_run, cli.verbose) {
+                Ok(_) => println!("{}", "WARP disconnected!".green().bold()),
+                Err(e) => println!("{} {}", "[ERROR]".red(), e),
+            }
+        }
+
+        Commands::WarpConnect {} => {
+            if !warp_installed {
+                println!("{} WARP is not installed", "[ERROR]".red());
+                println!("{} Run `oplire install warp` first", "Tip:".cyan().bold());
+                return;
+            }
+            println!("{}", "Connecting WARP...".bold());
+            match run_command("warp-cli", &["connect"], cli.dry_run, cli.verbose) {
+                Ok(_) => println!("{}", "WARP connected!".green().bold()),
+                Err(e) => println!("{} {}", "[ERROR]".red(), e),
+            }
         }
 
         Commands::About {} => {
@@ -1625,7 +1735,7 @@ fn main() {
         }
     }
 
-    if !matches!(&cli.command, Commands::About {} | Commands::Proxy { .. } | Commands::Gui { .. } | Commands::Connect { .. } | Commands::Start { .. } | Commands::Daemon { .. } | Commands::Watch { .. } | Commands::Doctor {} | Commands::Config { .. } | Commands::Setup {} | Commands::Install { .. } | Commands::Models { .. } | Commands::Tor { .. }) {
+    if !matches!(&cli.command, Commands::About {} | Commands::Proxy { .. } | Commands::Gui { .. } | Commands::Connect { .. } | Commands::Start { .. } | Commands::Daemon { .. } | Commands::Watch { .. } | Commands::Doctor {} | Commands::Config { .. } | Commands::Setup {} | Commands::Install { .. } | Commands::Models { .. } | Commands::Tor { .. } | Commands::Disconnect {} | Commands::WarpConnect {}) {
         println!("\n{} v{}", "oplire".bold(), VERSION.dimmed());
     }
 }

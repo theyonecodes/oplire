@@ -7,7 +7,9 @@ use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Instant;
+use tokio::net::TcpListener;
 use tokio::sync::Mutex;
+use tokio::signal;
 use tracing::info;
 
 use crate::config::{ProxyConfig, load_config};
@@ -57,6 +59,7 @@ pub async fn start_proxy_server(config: ProxyConfig) -> anyhow::Result<()> {
         .route("/api/warp/reset", post(crate::gui::api_warp_reset))
         .route("/api/warp/full-reset", post(crate::gui::api_warp_full_reset))
         .route("/api/warp/stop", post(crate::gui::api_warp_stop))
+        .route("/api/warp/connect", post(crate::gui::api_warp_connect))
         .route("/api/install/opencode", post(crate::gui::api_install_opencode))
         .route("/api/install/claude-code", post(crate::gui::api_install_claude_code))
         .route("/api/install/warp", post(crate::gui::api_install_warp))
@@ -86,10 +89,40 @@ pub async fn start_proxy_server(config: ProxyConfig) -> anyhow::Result<()> {
     info!("Starting proxy server on {}", addr);
     info!("OpenCode Zen upstream: {}", config.opencode_base_url);
 
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    let listener = TcpListener::bind(&addr).await?;
     info!("Proxy server listening on http://{}", addr);
 
-    axum::serve(listener, app).await?;
+    let shutdown_signal = async {
+        let ctrl_c = async {
+            signal::ctrl_c()
+                .await
+                .expect("Failed to install Ctrl+C handler");
+        };
+
+        #[cfg(unix)]
+        let terminate = async {
+            signal::unix::signal(signal::unix::SignalKind::terminate())
+                .expect("Failed to install signal handler")
+                .recv()
+                .await;
+        };
+
+        #[cfg(not(unix))]
+        let terminate = std::future::pending::<()>();
+
+        tokio::select! {
+            _ = ctrl_c => {},
+            _ = terminate => {},
+        }
+
+        info!("Shutdown signal received, starting graceful shutdown...");
+    };
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal)
+        .await?;
+
+    info!("Proxy server shut down gracefully");
 
     Ok(())
 }
