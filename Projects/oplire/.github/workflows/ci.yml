@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: false
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy
+    
+    - name: Cache cargo
+      uses: Swatinem/rust-cache@v2
+    
+    - name: Run cargo check
+      run: cargo check --all-targets --all-features
+    
+    - name: Run cargo clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+    
+    - name: Run cargo test
+      run: cargo test --all-features
+    
+    - name: Run cargo audit
+      run: cargo audit --json --output cargo-audit.json || true
+    
+    - name: Run cargo tarpaulin
+      run: cargo tarpaulin --out Xml --output-dir coverage || true
+
+  build:
+    needs: lint-and-test
+    runs-on: windows-latest
+    timeout-minutes: 20
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: false
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache cargo
+      uses: Swatinem/rust-cache@v2
+    
+    - name: Build release
+      run: cargo build --release --all-features
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: oplire-binaries
+        path: target/release/
+        retention-days: 7
